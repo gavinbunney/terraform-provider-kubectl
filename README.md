@@ -1,49 +1,38 @@
-# Terraform Provider
+# Kubernetes YAML Provider 
 
-- Website: https://www.terraform.io
-- [![Gitter chat](https://badges.gitter.im/hashicorp-terraform/Lobby.png)](https://gitter.im/hashicorp-terraform/Lobby)
-- Mailing list: [Google Groups](http://groups.google.com/group/terraform-tool)
+This was originally proposed [as a PR to add a YAML resource](https://github.com/terraform-providers/terraform-provider-kubernetes/pull/195) into the official Terraform provider. 
 
-<img src="https://cdn.rawgit.com/hashicorp/terraform-website/master/content/source/assets/images/logo-hashicorp.svg" width="600px">
+While the work is ongoing to provide a better experience in the official provider I've pulled the code out into a standalone provider which just provides the YAML resource. This allows for it to be used alongside the existing providers. 
 
-Maintainers
------------
+![demo](docs/yamldemo.gif)
 
-We are [actively looking for a Software Engineer](https://www.hashicorp.com/jobs/1185127)
-to work full-time in the Terraform team at [HashiCorp](https://www.hashicorp.com/)
-to maintain this provider.
+## Status: Experimental
 
-## Requirements
+Currently the code has been tried on a limited number of use cases. I would expect wider use to find issue, please raise them on the repository and make contributions to resolve them if you can. 
 
 
--	[Terraform](https://www.terraform.io/downloads.html) 0.10.x
--	[Go](https://golang.org/doc/install) 1.9 (to build the provider plugin)
+## Using the provider
+
+Download a binary for your system from the release page and remove the `-os-arch` details so you're left with `terraform-provider-k8sraw`. Use `chmod +x` to make it executable and then either place it at the root of your Terraform folder or in the Terraform plugin folder on your system. 
 
 ## Building The Provider
 
 Clone repository to: `$GOPATH/src/github.com/terraform-providers/terraform-provider-kubernetes`
 
 ```sh
-$ mkdir -p $GOPATH/src/github.com/terraform-providers; cd $GOPATH/src/github.com/terraform-providers
-$ git clone git@github.com:terraform-providers/terraform-provider-kubernetes
+$ mkdir -p $GOPATH/src/github.com/lawrencegripper; cd $GOPATH/src/github.com/lawrencegripper
+$ git clone git@github.com:lawrencegripper/terraform-provider-kubernetes-yaml
 ```
 
 Enter the provider directory and build the provider
 
 ```sh
-$ cd $GOPATH/src/github.com/terraform-providers/terraform-provider-kubernetes
+$ cd $GOPATH/src/github.com/lawrencegripper/terraform-provider-kubernetes-yaml
 $ make build
 ```
 
-## Using the provider
-
-- [ ] Fill in for each provider
-
 ## Developing the Provider
 
-### Contributing Resources
-
-In order to prevent breaking changes and migration of user-created resources, resources included in this provider will be limited to `v1` APIs and not `alpha` or `beta`. You can find `v1` resources in the Kubernetes [API documentation](https://kubernetes.io/docs/reference/#api-reference) for the appropriate version of Kubernetes.
 
 ### Development Environment
 

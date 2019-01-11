@@ -103,31 +103,17 @@ func Provider() terraform.ResourceProvider {
 			},
 		},
 
-		DataSourcesMap: map[string]*schema.Resource{
-			"kubernetes_service":       dataSourceKubernetesService(),
-			"kubernetes_storage_class": dataSourceKubernetesStorageClass(),
-		},
+		DataSourcesMap: map[string]*schema.Resource{},
 
 		ResourcesMap: map[string]*schema.Resource{
-			"kubernetes_config_map":                resourceKubernetesConfigMap(),
-			"kubernetes_deployment":                resourceKubernetesDeployment(),
-			"kubernetes_horizontal_pod_autoscaler": resourceKubernetesHorizontalPodAutoscaler(),
-			"kubernetes_limit_range":               resourceKubernetesLimitRange(),
-			"kubernetes_namespace":                 resourceKubernetesNamespace(),
-			"kubernetes_persistent_volume":         resourceKubernetesPersistentVolume(),
-			"kubernetes_persistent_volume_claim":   resourceKubernetesPersistentVolumeClaim(),
-			"kubernetes_pod":                       resourceKubernetesPod(),
-			"kubernetes_replication_controller":    resourceKubernetesReplicationController(),
-			"kubernetes_resource_quota":            resourceKubernetesResourceQuota(),
-			"kubernetes_secret":                    resourceKubernetesSecret(),
-			"kubernetes_service":                   resourceKubernetesService(),
-			"kubernetes_service_account":           resourceKubernetesServiceAccount(),
-			"kubernetes_storage_class":             resourceKubernetesStorageClass(),
-			"kubernetes_cluster_role_binding":      resourceKubernetesClusterRoleBinding(),
+			"k8sraw_yaml": resourceKubernetesYAML(),
 		},
 		ConfigureFunc: providerConfigure,
 	}
 }
+
+// KubeProvider func to return client and config to work with K8s API
+type KubeProvider func() (*kubernetes.Clientset, restclient.Config)
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 
@@ -178,7 +164,14 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 		return nil, fmt.Errorf("Failed to configure: %s", err)
 	}
 
-	return k, nil
+	var meta KubeProvider
+	meta = func() (*kubernetes.Clientset, restclient.Config) {
+		// Defref config to create a shallow copy, allowing each func
+		// to manipulate the state without affecting another func
+		return k, *cfg
+	}
+
+	return meta, nil
 }
 
 func tryLoadingConfigFile(d *schema.ResourceData) (*restclient.Config, error) {
