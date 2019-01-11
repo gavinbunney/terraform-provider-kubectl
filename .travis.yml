@@ -1,22 +1,22 @@
-dist: trusty
 sudo: required
 services:
 - docker
 language: go
 go:
 - 1.10
+dist: xenial
+
+# This moves Kubernetes specific config files.
+env:
+- CHANGE_MINIKUBE_NONE_USER=true
 
 install:
 - bash scripts/gogetcookie.sh
 - go get github.com/kardianos/govendor
+
 script:
-- make test
-- make vendor-status
-- make vet
 - make build-binaries
-branches:
-  only:
-  - master
+
 matrix:
   fast_finish: true
   allow_failures:
