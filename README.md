@@ -17,6 +17,32 @@ Currently the code has been tried on a limited number of use cases. I would expe
 
 Download a binary for your system from the release page and remove the `-os-arch` details so you're left with `terraform-provider-k8sraw`. Use `chmod +x` to make it executable and then either place it at the root of your Terraform folder or in the Terraform plugin folder on your system. 
 
+Then you can create a YAML resources by using the following Terraform:
+
+```hcl
+provider "k8sraw" {}
+
+resource "k8sraw_yaml" "test" {
+    yaml_body = <<YAML
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: test-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    azure/frontdoor: enabled
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /testpath
+        backend:
+          serviceName: test
+          servicePort: 80
+    YAML
+}
+```
+
 ## Building The Provider
 
 Clone repository to: `$GOPATH/src/github.com/terraform-providers/terraform-provider-kubernetes`
