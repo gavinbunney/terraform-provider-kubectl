@@ -27,6 +27,7 @@ before_deploy:
   - export BODY=$(git log -1 --pretty='%s')
 
 deploy:
+  skip_cleanup: true
   provider: releases
   api_key:
     # yamllint disable rule:line-length
