@@ -1,38 +1,41 @@
-sudo: required
+---
 services:
-- docker
+  - docker
 language: go
 go:
-- "1.10.x"
+  - "1.10.x"
 dist: xenial
 
 # This moves Kubernetes specific config files.
 env:
-- CHANGE_MINIKUBE_NONE_USER=true
+  - CHANGE_MINIKUBE_NONE_USER=true
 
 install:
-- bash scripts/gogetcookie.sh
-- go get github.com/kardianos/govendor
+  - bash scripts/gogetcookie.sh
+  - go get github.com/kardianos/govendor
 
 script:
-- make build-binaries
+  - make build-binaries
 
 matrix:
   fast_finish: true
   allow_failures:
-  - go: tip
+    - go: tip
 
 before_deploy:
-- git tag "v0.1.$TRAVIS_BUILD_NUMBER"
-- export BODY=$(git log -1 --pretty='%s')
+  - git tag "v0.1.$TRAVIS_BUILD_NUMBER"
+  - export BODY=$(git log -1 --pretty='%s')
 
 deploy:
+  skip_cleanup: true
   provider: releases
   api_key:
+    # yamllint disable rule:line-length
     secure: f+H4fdVSUbOOPz6T/z50s0jpWwPjJfRXkvr2SLNrA+HLsiOJwU9Q0cbVKrLfweI9xElY2NqZAkye/J9iRorKySGCNES32R2gBRq50ov/1UbcPcKsoJ5ndFSJUEi68Z6M7A2Bkzi9uuNt1AxAqyzl5ZhGlE3th2xrpOQ9oMKe2x2P/ZqLFaTBgthlzZi58BP0lMgEn09GM5QUZJkcykYkmZtJcjfLalAFXvGVgvzuOcB5lc30aa1efoOYOxUabp4wg71MMr9zU8x3sFx0FJMx5ul7fw7MAIJrzXedNKuadKX8i1eEdQ7q6+x+AF6B6hrWaRCosY82k1ZSQND+kP4/+I3+2rx6/JYrgWVTVrcEtJ4dEugcidxGWkGwrQbH4SxSNKSz/R7D4U4DE3DgaIT4MKA8M/I1JqDdtz4L4IA71DxBeCVRzT+fYpiZLZU15QFmpcxoRV2x2Sck+yn7slAVoL21YnWQAIlDb4HKyGisj39KJ2Qs2ZHM2eEbEB1733KtlI0+lx9CqeqdehHSKRhBgrDvJr0eVOQJmHKxyuZEReO0bMeszJs3DciKdMSBnt+o1jjWkghl5UqOGYjL8YUr9USRdEkD3DxFtJpU9CCYZnz3p1n38iUsFmrnqNvNdT/17NSATGxQjZpJGmv1OQQ6m+/WHqX+7SqyLr4fQBPF3iQ=
   file_glob: true
   file: bin/*
   body: ${BODY}
+  # yamllint disable-line rule:truthy
   on:
     repo: lawrencegripper/terraform-provider-kubernetes-yaml
     branch: master
