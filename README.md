@@ -1,5 +1,7 @@
 # Kubernetes YAML Provider 
 
+[![Build Status](https://travis-ci.com/lawrencegripper/terraform-provider-kubernetes-yaml.svg?branch=master)](https://travis-ci.com/lawrencegripper/terraform-provider-kubernetes-yaml)
+
 This was originally proposed [as a PR to add a YAML resource](https://github.com/terraform-providers/terraform-provider-kubernetes/pull/195) into the official Terraform provider. 
 
 While the work is ongoing to provide a better experience in the official provider I've pulled the code out into a standalone provider which just provides the YAML resource. This allows for it to be used alongside the existing providers. 
