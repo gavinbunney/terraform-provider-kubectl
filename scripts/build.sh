@@ -14,7 +14,7 @@ do
     GOOS=${platform_split[0]}
     GOARCH=${platform_split[1]}
     CGO_ENABLED=0 
-    output_name='./bin/kubernetes-yaml-'$GOOS'-'$GOARCH
+    output_name='./bin/k8sraw-'$GOOS'-'$GOARCH
     if [ $GOOS = "windows" ]; then
         output_name+='.exe'
     fi  

@@ -106,7 +106,7 @@ func Provider() terraform.ResourceProvider {
 		DataSourcesMap: map[string]*schema.Resource{},
 
 		ResourcesMap: map[string]*schema.Resource{
-			"kubernetes_yaml": resourceKubernetesYAML(),
+			"k8sraw_yaml": resourceKubernetesYAML(),
 		},
 		ConfigureFunc: providerConfigure,
 	}

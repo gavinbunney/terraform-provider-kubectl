@@ -1,6 +1,6 @@
-provider "kubernetes" {}
+provider "k8sraw" {}
 
-resource "kubernetes_yaml" "test" {
+resource "k8sraw_yaml" "test" {
     yaml_body = <<YAML
 apiVersion: extensions/v1beta1
 kind: Ingress
@@ -21,7 +21,7 @@ spec:
 }
 
 
-resource "kubernetes_yaml" "test-service" {
+resource "k8sraw_yaml" "test-service" {
     yaml_body = <<YAML
 apiVersion: v1
 kind: Service
