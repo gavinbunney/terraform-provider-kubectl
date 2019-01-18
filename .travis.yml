@@ -1,7 +1,7 @@
----
 services:
   - docker
 language: go
+sudo: required
 go:
   - "1.10.x"
 dist: xenial
@@ -16,6 +16,8 @@ install:
 
 script:
   - make build-binaries
+  - bash scipts/startminikube_ci.sh
+  - make testacc
 
 matrix:
   fast_finish: true
