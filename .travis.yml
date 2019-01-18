@@ -16,7 +16,7 @@ install:
 
 script:
   - make build-binaries
-  - bash scipts/startminikube_ci.sh
+  - bash scripts/startminikube_ci.sh
   - make testacc
 
 matrix:
