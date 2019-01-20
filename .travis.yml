@@ -15,9 +15,9 @@ install:
   - go get github.com/kardianos/govendor
 
 script:
-  - make build-binaries
   - bash scripts/startminikube_ci.sh
   - make testacc
+  - make build-binaries
 
 matrix:
   fast_finish: true
