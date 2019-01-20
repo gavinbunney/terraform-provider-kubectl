@@ -6,7 +6,7 @@ import (
 
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
-	upstream "github.com/terraform-providers/terraform-provider-kubernetes"
+	upstream "github.com/terraform-providers/terraform-provider-kubernetes/kubernetes"
 )
 
 var testAccProviders map[string]terraform.ResourceProvider

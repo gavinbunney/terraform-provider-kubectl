@@ -1,3 +1,14 @@
+resource "kubernetes_secret" "gitlfs_tls" {
+  metadata {
+    name      = "gitlfs-tls"
+  }
+
+  data {
+    tls.crt = "somedata"
+    tls.key = "moredata"
+  }
+}
+
 resource "k8sraw_yaml" "test" {
   yaml_body = <<YAML
 apiVersion: extensions/v1beta1
@@ -19,5 +30,9 @@ spec:
             backend:
               serviceName: jerry
               servicePort: 80
+tls:
+   - secretName: gitlfs-tls
+     hosts:
+     - bob
 YAML
 }
