@@ -514,9 +514,17 @@ func compareObjsInternal(originalObj, returnedObj reflect.Value, builder *string
 				for i := 0; i < oSliceLen; i++ {
 					log.Printf("[COMPARE] Recurse for Array/slice item: %#v %#v", returnedField, originalField)
 
-					err := compareObjsInternal(originalValue.Index(i), returnedValue.Index(i), builder)
-					if err != nil {
-						return err
+					// Handle case in which this is an array of ints or strings NOT structs
+					oValueSlice := originalValue.Index(i)
+					rValueSlice := returnedValue.Index(i)
+					rValueSliceKind := rValueSlice.Kind()
+					if rValueSliceKind == reflect.String || rValueSliceKind == reflect.Int {
+						builder.WriteString(fmt.Sprintf("fieldName:%s,fieldValue:%v", returnedField.Name+string(i), returnedValue.Interface()))
+					} else {
+						err := compareObjsInternal(oValueSlice, rValueSlice, builder)
+						if err != nil {
+							return err
+						}
 					}
 				}
 
