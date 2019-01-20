@@ -16,8 +16,8 @@ install:
 
 script:
   - bash scripts/startminikube_ci.sh
+  - make build
   - make testacc
-  - make build-binaries
 
 matrix:
   fast_finish: true
@@ -25,6 +25,7 @@ matrix:
     - go: tip
 
 before_deploy:
+  - make build-binaries
   - git tag "v0.1.$TRAVIS_BUILD_NUMBER"
   - export BODY=$(git log -1 --pretty='%s')
 

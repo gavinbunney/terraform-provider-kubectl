@@ -34,7 +34,7 @@ func TestAccK8srawYaml(t *testing.T) {
 
 	for _, path := range files {
 		t.Run("File: "+path, func(t *testing.T) {
-			name := fmt.Sprintf("tf-acc-test-service-%s", acctest.RandString(10))
+			name := fmt.Sprintf("tf-acc-test-%s", acctest.RandString(10))
 
 			resource.Test(t, resource.TestCase{
 				PreCheck:      func() {},
@@ -62,5 +62,5 @@ func testk8sRawYamlLoadTfExample(path, name string) string {
 	if err != nil {
 		panic(err)
 	}
-	return strings.Replace(string(dat), "__NAME_HERE__", name, -1)
+	return strings.Replace(string(dat), "name-here", name, -1)
 }
