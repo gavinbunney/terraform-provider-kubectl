@@ -5,7 +5,7 @@ resource "k8sraw_yaml" "test" {
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: test-ingress
+  name: __NAME_HERE__
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
     azure/frontdoor: enabled
@@ -20,20 +20,3 @@ spec:
     YAML
 }
 
-
-resource "k8sraw_yaml" "test-service" {
-    yaml_body = <<YAML
-apiVersion: v1
-kind: Service
-metadata:
-  name: terraform-nginx-example
-spec:
-  ports:
-  - port: 80
-    protocol: TCP
-    targetPort: 80
-  selector:
-    App: TerraformNginxExample
-  type: LoadBalancer
-    YAML
-}
