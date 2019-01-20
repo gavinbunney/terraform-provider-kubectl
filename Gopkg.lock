@@ -530,12 +530,9 @@
   version = "v1.0.1"
 
 [[projects]]
-  digest = "1:f78dee78c2da6c9115879899c407645afb4829ecd88dbf524fdf654df4a64380"
+  digest = "1:f63c0d8fa6d8268747cb658c6c1b19b9704692eeb629b41de2c8a28856a092a4"
   name = "github.com/terraform-providers/terraform-provider-kubernetes"
-  packages = [
-    ".",
-    "kubernetes",
-  ]
+  packages = ["kubernetes"]
   pruneopts = "UT"
   revision = "af777785157f288956a12a66a022244353d38d25"
   version = "v1.5.0"
@@ -935,7 +932,7 @@
     "github.com/hashicorp/terraform/plugin",
     "github.com/hashicorp/terraform/terraform",
     "github.com/mitchellh/go-homedir",
-    "github.com/terraform-providers/terraform-provider-kubernetes",
+    "github.com/terraform-providers/terraform-provider-kubernetes/kubernetes",
     "k8s.io/api/core/v1",
     "k8s.io/apimachinery/pkg/api/meta",
     "k8s.io/apimachinery/pkg/api/resource",
