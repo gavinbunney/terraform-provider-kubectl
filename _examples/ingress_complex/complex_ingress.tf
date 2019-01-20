@@ -1,6 +1,6 @@
 resource "kubernetes_secret" "gitlfs_tls" {
   metadata {
-    name      = "gitlfs-tls"
+    name      = "name-here"
   }
 
   data {
@@ -30,9 +30,9 @@ spec:
             backend:
               serviceName: jerry
               servicePort: 80
-tls:
-   - secretName: gitlfs-tls
-     hosts:
-     - bob
+  tls:
+    - secretName: name-here
+      hosts:
+      - bob
 YAML
 }
