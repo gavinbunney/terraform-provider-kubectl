@@ -3,31 +3,29 @@ package kubernetes
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform/helper/acctest"
 	"github.com/hashicorp/terraform/helper/resource"
-	// "github.com/hashicorp/terraform/helper/schema"
-	// "github.com/hashicorp/terraform/terraform"
-	// api "k8s.io/api/networking/v1"
-	// meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// kubernetes "k8s.io/client-go/kubernetes"
 )
 
-func TestAccKubernetesNetworkPolicy_basic(t *testing.T) {
+func TestAccK8srawYamlService_basic(t *testing.T) {
 	// var conf api.NetworkPolicy
-	name := fmt.Sprintf("tf-acc-test-%s", acctest.RandString(10))
+	name := fmt.Sprintf("tf-acc-test-service-%s", acctest.RandString(10))
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:      func() {},
-		IDRefreshName: "kubernetes_network_policy.test",
+		IDRefreshName: "k8sraw_yaml.test",
 		Providers:     testAccProviders,
-		// CheckDestroy:  testAccCheckKubernetesNetworkPolicyDestroy,
+		CheckDestroy:  testAccCheckK8srawDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testk8sRawYamlNetworking(name),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("kubernetes_network_policy.test", "metadata.0.annotations.%", "1"),
+					testAccCheckK8srawExists,
+					resource.TestCheckResourceAttrSet("k8sraw_yaml.test", "yaml_incluster"),
+					resource.TestCheckResourceAttrSet("k8sraw_yaml.test", "live_yaml_incluster"),
 				),
 			},
 		},
@@ -40,5 +38,5 @@ func testk8sRawYamlNetworking(name string) string {
 	if err != nil {
 		panic(err)
 	}
-	return string(dat)
+	return strings.Replace(string(dat), "__NAME_HERE__", name, -1)
 }
