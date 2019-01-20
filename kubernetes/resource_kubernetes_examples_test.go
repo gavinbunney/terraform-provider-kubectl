@@ -62,5 +62,5 @@ func testk8sRawYamlLoadTfExample(path, name string) string {
 	if err != nil {
 		panic(err)
 	}
-	return strings.Replace(string(dat), "__NAME_HERE__", name, -1)
+	return strings.Replace(string(dat), "name-here", name, -1)
 }

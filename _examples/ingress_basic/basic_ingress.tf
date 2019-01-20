@@ -5,7 +5,7 @@ resource "k8sraw_yaml" "test" {
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: __NAME_HERE__
+  name: name-here
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
     azure/frontdoor: enabled

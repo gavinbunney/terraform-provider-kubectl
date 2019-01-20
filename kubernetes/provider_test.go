@@ -6,6 +6,7 @@ import (
 
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
+	// upstream "github.com/hashicorp/terraform/terraform-kubernetes-provider/kubernetes"
 )
 
 var testAccProviders map[string]terraform.ResourceProvider
@@ -15,6 +16,7 @@ func init() {
 	testAccProvider = Provider().(*schema.Provider)
 	testAccProviders = map[string]terraform.ResourceProvider{
 		"k8sraw": testAccProvider,
+		// "kubernetes": upstream.Provider(),
 	}
 }
 
