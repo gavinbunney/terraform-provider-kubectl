@@ -71,6 +71,9 @@ Each scenario can be placed in a folder, to help others navigate and use the exa
 
 > Note: The test infrastructure doesn't support multi-file TF configurations so ensure your test scenario is in a single file. 
 
+### Debugging
+
+Using `vscode` with `delve` and `golang` configured the launch task in the repo will start a debugging session for the tests. Open the repo and press `F5` to get started.
 
 ### Development Environment
 
