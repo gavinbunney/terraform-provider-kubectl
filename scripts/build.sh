@@ -20,7 +20,7 @@ do
     fi  
     echo "Building for $GOOS $GOARCH..."
 
-    GOOS=$GOOS GOARCH=$GOARCH go build -a -installsuffix cgo -o $output_name
+    GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=$CGO_ENABLED go build -a -installsuffix cgo -o $output_name
 
     if [ $? -ne 0 ]; then
         echo 'An error has occurred! Aborting the script execution...'
