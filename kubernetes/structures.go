@@ -12,6 +12,30 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type TempYAML struct {
+	APIVersion string `json:"apiVersion"`
+	Kind       string `json:"kind"`
+	Metadata   struct {
+		Name       string   `json:"name"`
+		Finalizers []string `json:"finalizers"`
+	} `json:"metadata"`
+	Spec struct {
+		CronSpec string `json:"cronSpec"`
+		Image    string `json:"image"`
+	} `json:"spec"`
+}
+
+//YAMLResource is used as a fallback for parsing resources
+// which can't be parsed by the universal decoder
+type YAMLResource struct {
+	APIVersion string `yaml:"apiVersion"`
+	Kind       string `yaml:"kind"`
+	Metadata   struct {
+		Name      string `yaml:"name"`
+		Namespace string `yaml:"namespace"`
+	} `yaml:"metadata"`
+}
+
 func idParts(id string) (string, string, error) {
 	parts := strings.Split(id, "/")
 	if len(parts) != 2 {

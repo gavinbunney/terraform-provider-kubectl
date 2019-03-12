@@ -3,14 +3,17 @@ package kubernetes
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 	"reflect"
 	"strings"
 
 	"github.com/hashicorp/terraform/helper/schema"
+	yamlParser "gopkg.in/yaml.v2"
 	k8meta "k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	meta_v1_unstruct "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	meta_v1beta1 "k8s.io/apimachinery/pkg/apis/meta/v1beta1"
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -118,6 +121,7 @@ func resourceKubernetesYAMLCreate(d *schema.ResourceData, meta interface{}) erro
 	if err != nil {
 		return fmt.Errorf("failed to create kubernetes rest client for resource: %+v", err)
 	}
+
 	// Create the resource in Kubernetes
 	response := client.Post().AbsPath(absPath["POST"]).Body(rawObj).Do()
 	if response.Error() != nil {
@@ -258,11 +262,64 @@ func getResourceFromK8s(client rest.Interface, absPaths map[string]string) (*met
 	return metaObj, response, true, err
 }
 
-func getRestClientFromYaml(yaml string, provider KubeProvider) (*rest.RESTClient, map[string]string, runtime.Object, error) {
+func getRestClientFromYaml(yaml string, provider KubeProvider) (*rest.RESTClient, map[string]string, interface{}, error) {
 	absPaths := map[string]string{}
-	metaObj, rawObj, err := getResourceMetaObjFromYaml(yaml)
+	var rawObj interface{}
+
+	metaObj, rawObjRuntime, err := getResourceMetaObjFromYaml(yaml)
 	if err != nil {
-		return nil, absPaths, nil, err
+		// Fallback to YAML based decoding
+		fallbackResourceFromYAML := &YAMLResource{}
+		err := yamlParser.Unmarshal([]byte(yaml), fallbackResourceFromYAML)
+		if err != nil {
+			return nil, absPaths, nil, err
+		}
+
+		metaObj = &meta_v1beta1.PartialObjectMetadata{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name:      fallbackResourceFromYAML.Metadata.Name,
+				Namespace: fallbackResourceFromYAML.Metadata.Namespace,
+			},
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       fallbackResourceFromYAML.Kind,
+				APIVersion: fallbackResourceFromYAML.APIVersion,
+			},
+		}
+	}
+
+	rawObj = rawObjRuntime
+
+	if rawObj == nil {
+		// So we didn't get a runtime.Object back ... well that means the
+		// universal serialiser didn't work on this type... probably a CRD or something else
+		// To make things play nice we need the JSON representation of the object as
+		// the `RawObj`
+		// 1. UnMarshal YAML into map
+		// 2. Marshal map into JSON
+		// 3. UnMarshal JSON into the Unstructured type so we get some K8s checking
+		// 4. Marshal back into JSON ... now we know it's likely to play nice with k8s
+		rawYamlParsed := &TempYAML{}
+		err := yamlParser.Unmarshal([]byte(yaml), rawYamlParsed)
+		if err != nil {
+			return nil, absPaths, nil, err
+		}
+
+		rawJSON, err := json.Marshal(rawYamlParsed)
+		if err != nil {
+			return nil, absPaths, nil, err
+		}
+
+		unstrut := meta_v1_unstruct.Unstructured{}
+		err = unstrut.UnmarshalJSON(rawJSON)
+		if err != nil {
+			return nil, absPaths, nil, err
+		}
+
+		jsonData, err := unstrut.MarshalJSON()
+		if err != nil {
+			return nil, absPaths, nil, err
+		}
+		rawObj = jsonData
 	}
 
 	// Use the k8s Discovery service to find all valid APIs for this cluster
@@ -322,6 +379,7 @@ func getRestClientFromYaml(yaml string, provider KubeProvider) (*rest.RESTClient
 // the yaml provided into a k8s runtime.Object
 func getResourceMetaObjFromYaml(yaml string) (*meta_v1beta1.PartialObjectMetadata, runtime.Object, error) {
 	decoder := scheme.Codecs.UniversalDeserializer()
+
 	obj, _, err := decoder.Decode([]byte(yaml), nil, nil)
 	if err != nil {
 		log.Printf("[INFO] Error parsing type: %#v", err)
