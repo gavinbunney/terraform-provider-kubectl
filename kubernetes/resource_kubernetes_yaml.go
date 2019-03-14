@@ -286,6 +286,10 @@ func getRestClientFromYaml(yaml string, provider KubeProvider) (*rest.RESTClient
 				APIVersion: fallbackResourceFromYAML.APIVersion,
 			},
 		}
+
+		if metaObj.Namespace == "" {
+			metaObj.Namespace = "default"
+		}
 	}
 
 	rawObj = rawObjRuntime
