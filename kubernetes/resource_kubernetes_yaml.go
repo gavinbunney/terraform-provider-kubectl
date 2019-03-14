@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/icza/dyno"
 	yamlParser "gopkg.in/yaml.v2"
 	k8meta "k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -298,13 +299,13 @@ func getRestClientFromYaml(yaml string, provider KubeProvider) (*rest.RESTClient
 		// 2. Marshal map into JSON
 		// 3. UnMarshal JSON into the Unstructured type so we get some K8s checking
 		// 4. Marshal back into JSON ... now we know it's likely to play nice with k8s
-		rawYamlParsed := &TempYAML{}
+		rawYamlParsed := &map[string]interface{}{}
 		err := yamlParser.Unmarshal([]byte(yaml), rawYamlParsed)
 		if err != nil {
 			return nil, absPaths, nil, err
 		}
 
-		rawJSON, err := json.Marshal(rawYamlParsed)
+		rawJSON, err := json.Marshal(dyno.ConvertMapI2MapS(*rawYamlParsed))
 		if err != nil {
 			return nil, absPaths, nil, err
 		}

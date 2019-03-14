@@ -138,14 +138,6 @@
   version = "v3.2.0"
 
 [[projects]]
-  digest = "1:4d2e5a73dc1500038e504a8d78b986630e3626dc027bc030ba5c75da257cdb96"
-  name = "github.com/go-yaml/yaml"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
-  version = "v2.2.2"
-
-[[projects]]
   digest = "1:b7a8552c62868d867795b63eaf4f45d3e92d36db82b428e680b9c95a8c33e5b1"
   name = "github.com/gogo/protobuf"
   packages = [
@@ -385,6 +377,14 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "2f1d1f20f75d5404f53b9edf6b53ed5505508675"
+
+[[projects]]
+  branch = "master"
+  digest = "1:2ecb1cccc4f0bedec8b7a3074f013dde9c3ca3a1a08f39e434683bc8680bdead"
+  name = "github.com/icza/dyno"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "0c96289f9585a8af1ebfcee94d52b4f6cfaf9f0d"
 
 [[projects]]
   digest = "1:3e260afa138eab6492b531a3b3d10ab4cb70512d423faa78b8949dec76e66a21"
@@ -934,12 +934,12 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/go-yaml/yaml",
     "github.com/hashicorp/terraform/helper/acctest",
     "github.com/hashicorp/terraform/helper/resource",
     "github.com/hashicorp/terraform/helper/schema",
     "github.com/hashicorp/terraform/plugin",
     "github.com/hashicorp/terraform/terraform",
+    "github.com/icza/dyno",
     "github.com/mitchellh/go-homedir",
     "github.com/terraform-providers/terraform-provider-kubernetes/kubernetes",
     "gopkg.in/yaml.v2",
@@ -948,6 +948,7 @@
     "k8s.io/apimachinery/pkg/api/resource",
     "k8s.io/apimachinery/pkg/api/validation",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
+    "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
     "k8s.io/apimachinery/pkg/apis/meta/v1beta1",
     "k8s.io/apimachinery/pkg/conversion",
     "k8s.io/apimachinery/pkg/fields",
