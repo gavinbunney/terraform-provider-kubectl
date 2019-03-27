@@ -845,10 +845,11 @@
   revision = "d41becfba9ee9bf8e55cec1dd3934cd7cfc04b99"
 
 [[projects]]
-  digest = "1:ba4c72b4bb30ca158d0cb2b2c68be14050203e19ea1077f83ea508fc2d1bf3a6"
+  digest = "1:cb45a7328ff5bea27e4acc70c2084bbac671aa383d377beeee33eef51f885511"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
+    "dynamic",
     "kubernetes",
     "kubernetes/scheme",
     "kubernetes/typed/admissionregistration/v1alpha1",
@@ -955,6 +956,7 @@
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/serializer",
     "k8s.io/apimachinery/pkg/util/validation",
+    "k8s.io/client-go/dynamic",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/plugin/pkg/client/auth",

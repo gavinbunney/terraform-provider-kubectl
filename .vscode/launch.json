@@ -13,7 +13,6 @@
             "env": {
                 "TF_ACC": 1,
                 "KUBECONFIG": "/etc/rancher/k3s/k3s.yaml",
-
             },
             "args": ["-test.v"]
         }

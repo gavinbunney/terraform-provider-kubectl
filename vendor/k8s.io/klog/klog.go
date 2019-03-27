@@ -399,7 +399,7 @@ func init() {
 	// Default stderrThreshold is ERROR.
 	logging.stderrThreshold = errorLog
 
-	logging.setVState(0, nil, false)
+	logging.setVState(8, nil, false)
 	go logging.flushDaemon()
 }
 
