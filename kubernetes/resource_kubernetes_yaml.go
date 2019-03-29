@@ -181,6 +181,7 @@ func resourceKubernetesYAMLRead(d *schema.ResourceData, meta interface{}) error 
 	if err != nil {
 		return err
 	}
+
 	d.Set("live_yaml_incluster", getMD5Hash(builder.String()))
 
 	return nil
