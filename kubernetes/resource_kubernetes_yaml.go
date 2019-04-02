@@ -22,6 +22,7 @@ import (
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	// serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -285,9 +286,12 @@ func getRestClientFromYaml(yaml string, provider KubeProvider) (dynamic.Resource
 
 	// Use the k8s Discovery service to find all valid APIs for this cluster
 	clientSet, config := provider()
-	discovery := clientSet.Discovery()
-	resources, err := discovery.ServerResources()
-	if err != nil {
+	discoveryClient := clientSet.Discovery()
+	resources, err := discoveryClient.ServerResources()
+	// There is a partial failure mode here where not all groups are returned `GroupDiscoveryFailedError`
+	// we'll try and continue in this condition as it's likely something we don't need
+	// and if it is the `checkAPIResourceIsPresent` check will fail and stop the process
+	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
 		return nil, nil, err
 	}
 
