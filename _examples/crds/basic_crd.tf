@@ -1,7 +1,7 @@
 provider "k8sraw" {}
 
 
-resource "k8sraw_yaml" "crd" {
+resource "k8sraw_yaml" "test" {
   depends_on = ["k8sraw_yaml.definecrd"]
   yaml_body = <<YAML
 apiVersion: "stable.example.com/v1" 
