@@ -1,8 +1,6 @@
 package kubernetes
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -140,7 +138,7 @@ func resourceKubernetesYAMLCreate(d *schema.ResourceData, meta interface{}) erro
 	}
 
 	log.Printf("[COMPAREOUT] %+v\n", comparisonString)
-	d.Set("yaml_incluster", getMD5Hash(comparisonString))
+	d.Set("yaml_incluster", comparisonString)
 
 	return resourceKubernetesYAMLRead(d, meta)
 }
@@ -174,7 +172,7 @@ func resourceKubernetesYAMLRead(d *schema.ResourceData, meta interface{}) error 
 		return err
 	}
 
-	d.Set("live_yaml_incluster", getMD5Hash(comparisonOutput))
+	d.Set("live_yaml_incluster", comparisonOutput)
 
 	return nil
 }
@@ -302,9 +300,4 @@ func checkAPIResourceIsPresent(available []*meta_v1.APIResourceList, resource me
 		}
 	}
 	return nil, false
-}
-
-func getMD5Hash(text string) string {
-	hash := md5.Sum([]byte(text))
-	return hex.EncodeToString(hash[:])
 }

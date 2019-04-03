@@ -44,7 +44,6 @@ func testAccCheckK8srawStatus(s *terraform.State, shouldExist bool) error {
 		}
 
 		content, err := conn.RESTClient().Get().AbsPath(rs.Primary.ID).DoRaw()
-		fmt.Println(string(content))
 		if (errors.IsNotFound(err) || errors.IsGone(err)) && shouldExist {
 			return fmt.Errorf("Failed to find resource, likely a failure to create occured: %+v %v", err, string(content))
 		}
