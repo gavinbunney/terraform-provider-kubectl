@@ -1,0 +1,176 @@
+package kubernetes
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestPartialCompare(t *testing.T) {
+	testCases := []struct {
+		description    string
+		expectedString string
+		original       map[string]interface{}
+		returned       map[string]interface{}
+	}{
+		{
+			description: "Simple map with string value",
+			original: map[string]interface{}{
+				"test1": "test2",
+			},
+			returned: map[string]interface{}{
+				"test1": "test2",
+			},
+			expectedString: "fieldName:test1,fieldValue:test2",
+		},
+		{
+			// Ensure skippable fields are skipped
+			description: "Simple map with string value and Skippable fields",
+			original: map[string]interface{}{
+				"test1":           "test2",
+				"resourceVersion": "1245",
+			},
+			returned: map[string]interface{}{
+				"test1":           "test2",
+				"resourceVersion": "1245",
+			},
+			expectedString: "fieldName:test1,fieldValue:test2",
+		},
+		{
+			// Ensure nested `map[string]string` are supported
+			description: "Map with nested map[string]string",
+			original: map[string]interface{}{
+				"test1": "test2",
+				"nest": map[string]string{
+					"bob": "bill",
+				},
+			},
+			returned: map[string]interface{}{
+				"test1": "test2",
+				"nest": map[string]string{
+					"bob": "bill",
+				},
+			},
+			expectedString: "fieldName:bob,fieldValue:billfieldName:test1,fieldValue:test2",
+		},
+		{
+			// Ensure ordering of the fields doesn't affect matching
+			description: "Different Ordering",
+			original: map[string]interface{}{
+				"ztest1": "test2",
+				"afield": "test2",
+			},
+			returned: map[string]interface{}{
+				"afield": "test2",
+				"ztest1": "test2",
+			},
+			expectedString: "fieldName:afield,fieldValue:test2fieldName:ztest1,fieldValue:test2",
+		},
+		{
+			// Ensure nested arrays are handled
+			description: "Nested Array",
+			original: map[string]interface{}{
+				"ztest1": []string{
+					"1", "2",
+				},
+				"afield": "test2",
+			},
+			returned: map[string]interface{}{
+				"afield": "test2",
+				"ztest1": []string{
+					"1", "2",
+				},
+			},
+			expectedString: "fieldName:afield,fieldValue:test2fieldName:ztest1,fieldValue:[1 2]",
+		},
+		{
+			// Ensure fields added to the `returned` which aren't present in the `originl` are ignored
+			description: "Ignore additional fields",
+			original: map[string]interface{}{
+				"afield": "test2",
+			},
+			returned: map[string]interface{}{
+				"afield": "test2",
+				"ztest1": []string{
+					"1", "2",
+				},
+			},
+			expectedString: "fieldName:afield,fieldValue:test2",
+		},
+		{
+			// Ensure that fields present in the `original` but missing in the `returned` are skipped
+			description: "Handle removed fields",
+			original: map[string]interface{}{
+				"afield":   "test2",
+				"igetlost": "test2",
+			},
+			returned: map[string]interface{}{
+				"afield": "test2",
+			},
+			expectedString: "fieldName:afield,fieldValue:test2",
+		},
+		{
+			description: "Handle integers",
+			original: map[string]interface{}{
+				"afield": 1,
+			},
+			returned: map[string]interface{}{
+				"afield": 1,
+			},
+			expectedString: "fieldName:afield,fieldValue:1",
+		},
+		{
+			// Ensure that the updated value for `afield` on the `returned` object is taken
+			description: "Handle updated field. Expect returned value to be shown",
+			original: map[string]interface{}{
+				"afield": 1,
+			},
+			returned: map[string]interface{}{
+				"afield": 2,
+			},
+			expectedString: "fieldName:afield,fieldValue:2",
+		},
+		{
+			// Ensure that the updated value fo the `returned` object is taken for the `willchange` field
+			description: "Map with nested map[string]string with updated field",
+			original: map[string]interface{}{
+				"test1": "test2",
+				"nest": map[string]string{
+					"willchange": "bill",
+				},
+			},
+			returned: map[string]interface{}{
+				"nest": map[string]string{
+					"willchange": "updatedbill",
+				},
+			},
+			expectedString: "fieldName:willchange,fieldValue:updatedbill",
+		},
+		{
+			// Ensure that both fields are tracked in the output
+			description: "Handle duplicate name fields in nested maps",
+			original: map[string]interface{}{
+				"atest": "test",
+				"nest": map[string]string{
+					"atest": "bill",
+				},
+			},
+			returned: map[string]interface{}{
+				"atest": "test",
+				"nest": map[string]string{
+					"atest": "bill",
+				},
+			},
+			expectedString: "fieldName:atest,fieldValue:billfieldName:atest,fieldValue:test",
+		},
+	}
+
+	for _, tcase := range testCases {
+		t.Run(tcase.description, func(t *testing.T) {
+			result, err := compareMaps(tcase.original, tcase.returned)
+			assert.NoError(t, err, "Expect compareMaps to succeed")
+
+			assert.Equal(t, tcase.expectedString, result, "Expect the builder output to match")
+		})
+	}
+}

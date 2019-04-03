@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
 
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/icza/dyno"
@@ -135,12 +134,13 @@ func resourceKubernetesYAMLCreate(d *schema.ResourceData, meta interface{}) erro
 	// read in by the 'resourceKubernetesYAMLRead'
 	d.Set("uid", response.GetUID())
 	d.Set("resource_version", response.GetResourceVersion())
-	builder := strings.Builder{}
-	err = compareObjs(rawObj, response, &builder)
+	comparisonString, err := compareMaps(rawObj.UnstructuredContent(), response.UnstructuredContent())
 	if err != nil {
 		return err
 	}
-	d.Set("yaml_incluster", getMD5Hash(builder.String()))
+
+	log.Printf("[COMPAREOUT] %+v\n", comparisonString)
+	d.Set("yaml_incluster", getMD5Hash(comparisonString))
 
 	return resourceKubernetesYAMLRead(d, meta)
 }
@@ -169,13 +169,12 @@ func resourceKubernetesYAMLRead(d *schema.ResourceData, meta interface{}) error 
 	d.Set("live_uid", metaObjLive.GetUID())
 	d.Set("live_resource_version", metaObjLive.GetResourceVersion())
 
-	builder := strings.Builder{}
-	err = compareObjs(rawObj, metaObjLive, &builder)
+	comparisonOutput, err := compareMaps(rawObj.UnstructuredContent(), metaObjLive.UnstructuredContent())
 	if err != nil {
 		return err
 	}
 
-	d.Set("live_yaml_incluster", getMD5Hash(builder.String()))
+	d.Set("live_yaml_incluster", getMD5Hash(comparisonOutput))
 
 	return nil
 }
@@ -250,6 +249,9 @@ func getRestClientFromYaml(yaml string, provider KubeProvider) (dynamic.Resource
 	if err != nil {
 		return nil, nil, err
 	}
+
+	unstructContent := unstrut.UnstructuredContent()
+	log.Printf("[UNSTRUCT]: %+v\n", unstructContent)
 
 	// Use the k8s Discovery service to find all valid APIs for this cluster
 	clientSet, config := provider()
