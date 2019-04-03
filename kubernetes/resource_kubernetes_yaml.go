@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"reflect"
 	"strings"
 
 	"github.com/hashicorp/terraform/helper/schema"
@@ -17,21 +16,16 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	meta_v1_unstruct "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	meta_v1beta1 "k8s.io/apimachinery/pkg/apis/meta/v1beta1"
-	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
-	// serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
-	"k8s.io/klog"
-	"os"
+	// "k8s.io/klog"
 )
 
 func resourceKubernetesYAML() *schema.Resource {
-	klog.SetOutput(os.Stdout)
+	// klog.SetOutput(os.Stdout)
 	return &schema.Resource{
 		Create: resourceKubernetesYAMLCreate,
 		Read:   resourceKubernetesYAMLRead,
@@ -235,31 +229,6 @@ func resourceKubernetesYAMLExists(d *schema.ResourceData, meta interface{}) (boo
 	return false, nil
 }
 
-func getResourceFromK8s(client rest.Interface, absPaths map[string]string) (*meta_v1beta1.PartialObjectMetadata, runtime.Object, bool, error) {
-	result := client.Get().AbsPath(absPaths["GET"]).Do()
-
-	var statusCode int
-	result.StatusCode(&statusCode)
-	// Resource doesn't exist
-	if statusCode != 200 {
-		return nil, nil, false, nil
-	}
-
-	// Another error occured
-	response, err := result.Get()
-	if err != nil {
-		return nil, nil, false, err
-	}
-
-	// Get the metadata we need
-	metaObj, err := runtimeObjToMetaObj(response)
-	if err != nil {
-		return nil, nil, true, err
-	}
-
-	return metaObj, response, true, err
-}
-
 func getRestClientFromYaml(yaml string, provider KubeProvider) (dynamic.ResourceInterface, *meta_v1_unstruct.Unstructured, error) {
 	// To make things play nice we need the JSON representation of the object as
 	// the `RawObj`
@@ -315,24 +284,6 @@ func getRestClientFromYaml(yaml string, provider KubeProvider) (dynamic.Resource
 	return client, &unstrut, nil
 }
 
-// getResourceMetaObjFromYaml Uses the UniversalDeserializer to deserialize
-// the yaml provided into a k8s runtime.Object
-func getResourceMetaObjFromYaml(yaml string) (*meta_v1beta1.PartialObjectMetadata, runtime.Object, error) {
-	decoder := scheme.Codecs.UniversalDeserializer()
-
-	obj, _, err := decoder.Decode([]byte(yaml), nil, nil)
-	if err != nil {
-		log.Printf("[INFO] Error parsing type: %#v", err)
-		return nil, nil, err
-	}
-	metaObj, err := runtimeObjToMetaObj(obj)
-	if err != nil {
-		return nil, nil, err
-	}
-	return metaObj, obj, nil
-
-}
-
 // checkAPIResourceIsPresent Loops through a list of available APIResources and
 // checks there is a resource for the APIVersion and Kind defined in the 'resource'
 // if found it returns true and the APIResource which matched
@@ -370,177 +321,6 @@ func runtimeObjToMetaObj(obj runtime.Object) (*meta_v1beta1.PartialObjectMetadat
 		metaObj.Namespace = "default"
 	}
 	return metaObj, nil
-}
-
-func compareObjs(original, returned interface{}, builder *strings.Builder) error {
-	// Check originalObj is valid
-	originalObj, err := conversion.EnforcePtr(original)
-	if err != nil {
-		return err
-	}
-
-	// Check returnedObj is valid
-	returnedObj, err := conversion.EnforcePtr(returned)
-	if err != nil {
-		return err
-	}
-	return compareObjsInternal(originalObj, returnedObj, builder)
-}
-
-var skipFields = map[string]bool{
-	"Status":            true,
-	"Finalizers":        true,
-	"Initializers":      true,
-	"OwnerReferences":   true,
-	"CreationTimestamp": true,
-	"Generation":        true,
-	"ResourceVersion":   true,
-	"UID":               true,
-}
-
-func compareObjsInternal(originalObj, returnedObj reflect.Value, builder *strings.Builder) error {
-	originalObType := originalObj.Type()
-	if originalObType.Kind() != reflect.Struct {
-		return fmt.Errorf("expected struct, but got %v: %v", originalObj.Kind(), originalObj)
-	}
-
-	returnedObjType := returnedObj.Type()
-	if returnedObjType.Kind() != reflect.Struct {
-		return fmt.Errorf("expected struct, but got %v: %v", returnedObj.Kind(), returnedObj)
-	}
-
-	// Loop through all fields on the original Obj
-	// for each field on the original get it's value on the returned obj
-	// and use this to build a hash
-	for iO := 0; iO < originalObType.NumField(); iO++ {
-		originalField := originalObType.Field(iO)
-
-		for iR := 0; iR < returnedObjType.NumField(); iR++ {
-			returnedField := returnedObjType.Field(iR)
-
-			// Check we're comparing the right field
-			if returnedField.Name != originalField.Name {
-				log.Printf("[COMPARE] Skipping: %#v %#v", returnedField, originalField)
-				continue
-			}
-
-			// Skip any fields we want to ignore
-			if _, exists := skipFields[returnedField.Name]; exists {
-				log.Printf("[COMPARE] Skipping as in SkipFields: %#v %#v", returnedField, originalField)
-				continue
-			}
-
-			// Get the value of the field and pull value
-			// out if the field is a ptr
-			originalValue := originalObj.Field(iO)
-			if originalValue.Kind() == reflect.Ptr {
-				if originalValue.IsNil() {
-					log.Printf("[COMPARE] Skipping as is nil ptr: %#v %#v", returnedField, originalField)
-					continue
-				}
-				originalValue = originalValue.Elem()
-			}
-			returnedValue := returnedObj.Field(iO)
-			if returnedValue.Kind() == reflect.Ptr {
-				if returnedValue.IsNil() {
-					log.Printf("[COMPARE] Skipping as is nil ptr: %#v %#v", returnedField, originalField)
-					continue
-				}
-				returnedValue = returnedValue.Elem()
-			}
-
-			log.Printf("[COMPARE] Found matching field: %#v, %#v", returnedField.Name, returnedValue.Type().Kind().String())
-
-			// Recurse into the struct to compare it's fields
-			if returnedValue.Type().Kind() == reflect.Struct {
-				log.Printf("[COMPARE] Found struct recurrsing: %#v", returnedField)
-
-				err := compareObjsInternal(originalValue, returnedValue, builder)
-				if err != nil {
-					return err
-				}
-				continue
-			}
-
-			// Skip unneeded fields
-			k := returnedValue.Kind()
-			switch k {
-			case reflect.String:
-				if returnedValue.String() == "" {
-					log.Printf("[COMPARE] Skipping empty string value: %#v %#v", returnedField, originalField)
-					continue
-				}
-			case reflect.Chan, reflect.Func, reflect.Map, reflect.Ptr, reflect.Interface, reflect.Slice:
-
-				// We can check if these are nil
-				if returnedValue.IsNil() {
-					log.Printf("[COMPARE] Skipping nil value: %#v %#v", returnedField, originalField)
-					continue
-				}
-			}
-
-			// We can do a more detailed comparison on map fields
-			if k == reflect.Map {
-				log.Printf("[COMPARE] Comparing map: %#v %#v", returnedField, originalField)
-
-				returnedKeys := returnedValue.MapKeys()
-				originalKeys := originalValue.MapKeys()
-
-				for _, oKey := range originalKeys {
-					for _, rKey := range returnedKeys {
-						if oKey.String() == rKey.String() {
-							rValue := returnedValue.MapIndex(rKey)
-
-							log.Printf("[COMPARE] Found matching map value. Writing to string builder: %s->%#v", returnedField.Name, returnedValue.Interface())
-							builder.WriteString(fmt.Sprintf("fieldName:%s,keyName:%s,fieldValue:%v", returnedField.Name, oKey.String(), rValue.Interface()))
-						}
-					}
-				}
-
-				return nil
-			}
-
-			// We can do a more detailed comparison for arrays too
-			if k == reflect.Slice {
-				log.Printf("[COMPARE] Comparing slice: %#v %#v", returnedField, originalField)
-
-				oSliceLen := originalValue.Len()
-				rSliceLen := returnedValue.Len()
-				if rSliceLen < oSliceLen {
-					//Todo: what do we do here?
-					panic("wrong size")
-				}
-
-				for i := 0; i < oSliceLen; i++ {
-					log.Printf("[COMPARE] Recurse for Array/slice item: %#v %#v", returnedField, originalField)
-
-					// Handle case in which this is an array of ints or strings NOT structs
-					oValueSlice := originalValue.Index(i)
-					rValueSlice := returnedValue.Index(i)
-					rValueSliceKind := rValueSlice.Kind()
-					if rValueSliceKind == reflect.String || rValueSliceKind == reflect.Int {
-						builder.WriteString(fmt.Sprintf("fieldName:%s,fieldValue:%v", returnedField.Name+string(i), returnedValue.Interface()))
-					} else {
-						err := compareObjsInternal(oValueSlice, rValueSlice, builder)
-						if err != nil {
-							return err
-						}
-					}
-				}
-
-				return nil
-			}
-
-			if returnedValue.CanInterface() {
-				log.Printf("[COMPARE] Found value writing to string builder: %s->%#v  (%#v)", returnedField.Name, returnedValue.Interface(), returnedValue.Kind().String())
-				builder.WriteString(fmt.Sprintf("fieldName:%s,fieldValue:%v", returnedField.Name, returnedValue.Interface()))
-			} else {
-				log.Printf("[COMPARE] Found unsettable field :(: %#v", returnedField.Name)
-			}
-		}
-	}
-
-	return nil
 }
 
 func getMD5Hash(text string) string {
