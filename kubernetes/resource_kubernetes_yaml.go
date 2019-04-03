@@ -12,11 +12,9 @@ import (
 	"github.com/icza/dyno"
 	yamlParser "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/api/errors"
-	k8meta "k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	meta_v1_unstruct "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	meta_v1beta1 "k8s.io/apimachinery/pkg/apis/meta/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 
 	"k8s.io/client-go/discovery"
@@ -302,25 +300,6 @@ func checkAPIResourceIsPresent(available []*meta_v1.APIResourceList, resource me
 		}
 	}
 	return nil, false
-}
-
-// runtimeObjToMetaObj Gets a subset of the full object information
-// just enough to construct the API Calls needed and detect any changes
-// made to the object in the cluster (UID & ResourceVersion)
-func runtimeObjToMetaObj(obj runtime.Object) (*meta_v1beta1.PartialObjectMetadata, error) {
-	metaObj := k8meta.AsPartialObjectMetadata(obj.(meta_v1.Object))
-	typeMeta, err := k8meta.TypeAccessor(obj)
-	if err != nil {
-		return nil, err
-	}
-	metaObj.TypeMeta = meta_v1.TypeMeta{
-		APIVersion: typeMeta.GetAPIVersion(),
-		Kind:       typeMeta.GetKind(),
-	}
-	if metaObj.Namespace == "" {
-		metaObj.Namespace = "default"
-	}
-	return metaObj, nil
 }
 
 func getMD5Hash(text string) string {
