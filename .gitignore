@@ -31,3 +31,4 @@ website/vendor
 !command/test-fixtures/**/.terraform/
 **/terraform-provider-kubernetes-yaml
 **/terraform-provider-k8sraw
+k3s
