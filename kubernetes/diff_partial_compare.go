@@ -46,32 +46,34 @@ func getReturnedValueForOriginalFields(original, returned map[string]interface{}
 			}
 
 			// If we're looking at a nested map then recurse into it
-			if _, ok := oValueTop.(map[string]interface{}); ok {
-				newFields, err := getReturnedValueForOriginalFields(oValueTop.(map[string]interface{}), rValueTop.(map[string]interface{}))
-				if err != nil {
-					return nil, err
-				}
-				fields = append(fields, newFields...)
-				continue
+			fieldsFound, foundMaps, err := handleMaps(oValueTop, rValueTop)
+			if err != nil {
+				return []string{}, err
 			}
-
-			// If it's a map[string]string convert then recurse
-			if _, ok := oValueTop.(map[string]string); ok {
-
-				newFields, err := getReturnedValueForOriginalFields(convertToMapStringInterface(oValueTop), convertToMapStringInterface(rValueTop))
-				if err != nil {
-					return nil, err
-				}
-				fields = append(fields, newFields...)
-
+			if foundMaps {
+				// this one was a map and we've handled it.
+				fields = append(fields, fieldsFound...)
 				continue
 			}
 
 			// Handle array returned types
-			// Todo: probably needs to be recursive
-			if array, ok := rValueTop.([]interface{}); ok {
-				for i, _ := range array {
-					fields = append(fields, fmt.Sprintf("fieldName:%s,fieldValue:%+v", fmt.Sprintf("%v[%v]", oKeyTop, i), array[i]))
+			// Todo: probably needs to be more recursive
+			if arrayReturned, ok := rValueTop.([]interface{}); ok {
+				for i, _ := range arrayReturned {
+
+					// Again if we're looking at a nested map then recurse into it
+					fieldsFound, foundMaps, err := handleMaps(oValueTop.([]interface{})[i], arrayReturned[i])
+					if err != nil {
+						return []string{}, err
+					}
+					if foundMaps {
+						// this one was a map and we've handled it.
+						fields = append(fields, fieldsFound...)
+						continue
+					}
+
+					// Otherwise it's probably something else so can be printed
+					fields = append(fields, fmt.Sprintf("fieldName:%s,fieldValue:%+v", fmt.Sprintf("%v[%v]", oKeyTop, i), arrayReturned[i]))
 				}
 				continue
 			}
@@ -82,6 +84,33 @@ func getReturnedValueForOriginalFields(original, returned map[string]interface{}
 	}
 
 	return fields, nil
+}
+
+func handleMaps(oValue, rValue interface{}) ([]string, bool, error) {
+	fields := []string{}
+
+	// If we're looking at a nested map then recurse into it
+	if _, ok := oValue.(map[string]interface{}); ok {
+		newFields, err := getReturnedValueForOriginalFields(oValue.(map[string]interface{}), rValue.(map[string]interface{}))
+		if err != nil {
+			return []string{}, false, err
+		}
+		fields = append(fields, newFields...)
+		return fields, true, nil
+	}
+
+	// If it's a map[string]string convert then recurse
+	if _, ok := oValue.(map[string]string); ok {
+
+		newFields, err := getReturnedValueForOriginalFields(convertToMapStringInterface(oValue), convertToMapStringInterface(rValue))
+		if err != nil {
+			return []string{}, false, err
+		}
+		fields = append(fields, newFields...)
+		return fields, true, nil
+	}
+
+	return []string{}, false, nil
 }
 
 func convertToMapStringInterface(input interface{}) map[string]interface{} {
