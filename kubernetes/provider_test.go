@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
 	upstream "github.com/terraform-providers/terraform-provider-kubernetes/kubernetes"
+	"k8s.io/apimachinery/pkg/api/errors"
 )
 
 var testAccProviders map[string]terraform.ResourceProvider
@@ -27,14 +28,14 @@ func TestProvider(t *testing.T) {
 }
 
 func testAccCheckK8srawDestroy(s *terraform.State) error {
-	return testAccCheckK8srawStatus(s, 404)
+	return testAccCheckK8srawStatus(s, false)
 }
 
 func testAccCheckK8srawExists(s *terraform.State) error {
-	return testAccCheckK8srawStatus(s, 200)
+	return testAccCheckK8srawStatus(s, true)
 }
 
-func testAccCheckK8srawStatus(s *terraform.State, expectedCode int) error {
+func testAccCheckK8srawStatus(s *terraform.State, shouldExist bool) error {
 	conn, _ := testAccProvider.Meta().(KubeProvider)()
 
 	for _, rs := range s.RootModule().Resources {
@@ -42,20 +43,10 @@ func testAccCheckK8srawStatus(s *terraform.State, expectedCode int) error {
 			continue
 		}
 
-		result := conn.RESTClient().Get().AbsPath(rs.Primary.ID).Do()
-		var statusCode int
-		result.StatusCode(&statusCode)
-		// Did we get the status code we expected?
-		if statusCode == expectedCode {
-			continue
+		content, err := conn.RESTClient().Get().AbsPath(rs.Primary.ID).DoRaw()
+		if (errors.IsNotFound(err) || errors.IsGone(err)) && shouldExist {
+			return fmt.Errorf("Failed to find resource, likely a failure to create occured: %+v %v", err, string(content))
 		}
-
-		// Another error occured
-		response, err := result.Get()
-		if err != nil {
-			return fmt.Errorf("Failed to get 404 for resource, likely a failure to delete occured: %+v", err)
-		}
-		return fmt.Errorf("Response: %+v", response)
 
 	}
 

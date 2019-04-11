@@ -13,7 +13,10 @@ test: fmtcheck
 		xargs -t -n4 go test $(TESTARGS) -timeout=30s -parallel=4
 
 testacc: fmtcheck
-	TF_ACC=1 go test ./kubernetes -v $(TESTARGS) -timeout 120m
+	TF_ACC=1 go test ./kubernetes -v $(TESTARGS) -timeout 120m -count=1
+
+testacck3: fmtcheck
+	TF_ACC=1 TF_LOG=DEBUG KUBECONFIG=/etc/rancher/k3s/k3s.yaml go test ./kubernetes -v $(TESTARGS) -timeout 120m -count=1
 
 vet:
 	@echo "go vet ."

@@ -6,18 +6,14 @@ go:
   - "1.10.x"
 dist: xenial
 
-# This moves Kubernetes specific config files.
-env:
-  - CHANGE_MINIKUBE_NONE_USER=true
-
 install:
   - bash scripts/gogetcookie.sh
   - go get github.com/kardianos/govendor
 
 script:
-  - bash scripts/startminikube_ci.sh
+  - bash scripts/startk3s_ci.sh
   - make build
-  - make testacc
+  - KUBECONFIG=/etc/rancher/k3s/k3s.yaml make testacc
 
 matrix:
   fast_finish: true

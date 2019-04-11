@@ -6,14 +6,15 @@ This was originally proposed [as a PR to add a YAML resource](https://github.com
 
 While the work is ongoing to provide a better experience in the official provider I've pulled the code out into a standalone provider which just provides the YAML resource. This allows for it to be used alongside the existing providers. 
 
-![demo](docs/yamldemo.gif)
-
 ## Status: Experimental
 
 Currently the code has been tried on a limited number of use cases. I would expect wider use to find issue, please raise them on the repository and make contributions to resolve them if you can. 
 
 
+
 ## Using the provider
+
+![demo](docs/yamldemo.gif)
 
 Download a binary for your system from the release page and remove the `-os-arch` details so you're left with `terraform-provider-k8sraw`. Use `chmod +x` to make it executable and then either place it at the root of your Terraform folder or in the Terraform plugin folder on your system. 
 
@@ -71,6 +72,9 @@ Each scenario can be placed in a folder, to help others navigate and use the exa
 
 > Note: The test infrastructure doesn't support multi-file TF configurations so ensure your test scenario is in a single file. 
 
+### Debugging
+
+Using `vscode` with `delve` and `golang` configured the launch task in the repo will start a debugging session for the tests. Open the repo and press `F5` to get started.
 
 ### Development Environment
 
