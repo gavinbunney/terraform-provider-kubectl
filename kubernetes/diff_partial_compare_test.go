@@ -54,6 +54,51 @@ func TestPartialCompare(t *testing.T) {
 			expectedString: "fieldName:bob,fieldValue:billfieldName:test1,fieldValue:test2",
 		},
 		{
+			// Ensure nested `map[string]string` with different ordering are supported
+			description: "Map with nested map[string]string with different ordering",
+			original: map[string]interface{}{
+				"test1": "test2",
+				"nest": map[string]string{
+					"bob1": "bill",
+					"bob2": "bill",
+					"bob3": "bill",
+				},
+			},
+			returned: map[string]interface{}{
+				"test1": "test2",
+				"nest": map[string]string{
+					"bob2": "bill",
+					"bob1": "bill",
+					"bob3": "bill",
+				},
+			},
+			expectedString: "fieldName:bob1,fieldValue:billfieldName:bob2,fieldValue:billfieldName:bob3,fieldValue:billfieldName:test1,fieldValue:test2",
+		},
+		{
+			description: "Map with nested map[string]string with nested array",
+			original: map[string]interface{}{
+				"test1": "test2",
+				"nest": map[string]interface{}{
+					"bob1": []interface{}{
+						"a",
+						"b",
+						"c",
+					},
+				},
+			},
+			returned: map[string]interface{}{
+				"test1": "test2",
+				"nest": map[string]interface{}{
+					"bob1": []interface{}{
+						"c",
+						"b",
+						"a",
+					},
+				},
+			},
+			expectedString: "fieldName:bob1[0],fieldValue:cfieldName:bob1[1],fieldValue:bfieldName:bob1[2],fieldValue:afieldName:test1,fieldValue:test2",
+		},
+		{
 			// Ensure ordering of the fields doesn't affect matching
 			description: "Different Ordering",
 			original: map[string]interface{}{

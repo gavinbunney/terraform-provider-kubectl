@@ -67,6 +67,15 @@ func getReturnedValueForOriginalFields(original, returned map[string]interface{}
 				continue
 			}
 
+			// Handle array returned types
+			// Todo: probably needs to be recursive
+			if array, ok := rValueTop.([]interface{}); ok {
+				for i, _ := range array {
+					fields = append(fields, fmt.Sprintf("fieldName:%s,fieldValue:%+v", fmt.Sprintf("%v[%v]", oKeyTop, i), array[i]))
+				}
+				continue
+			}
+
 			// Check for simple types
 			fields = append(fields, fmt.Sprintf("fieldName:%s,fieldValue:%+v", oKeyTop, rValueTop))
 		}
