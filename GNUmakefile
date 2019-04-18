@@ -15,6 +15,9 @@ test: fmtcheck
 testacc: fmtcheck
 	TF_ACC=1 go test ./kubernetes -v $(TESTARGS) -timeout 120m -count=1
 
+testacc-startk3:
+	rm -f -r /var/lib/rancher/k3s/data && /home/lawrence/go/bin/k3s server
+
 testacck3: fmtcheck
 	TF_ACC=1 TF_LOG=DEBUG KUBECONFIG=/etc/rancher/k3s/k3s.yaml go test ./kubernetes -v $(TESTARGS) -timeout 120m -count=1
 

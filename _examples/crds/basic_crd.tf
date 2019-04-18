@@ -1,4 +1,6 @@
-provider "k8sraw" {}
+provider "k8sraw" {
+  create_retry_count = 15
+}
 
 
 resource "k8sraw_yaml" "test" {

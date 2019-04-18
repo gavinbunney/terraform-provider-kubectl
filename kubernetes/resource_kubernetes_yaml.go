@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/cenkalti/backoff"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/icza/dyno"
 	yamlParser "gopkg.in/yaml.v2"
@@ -22,7 +23,15 @@ import (
 func resourceKubernetesYAML() *schema.Resource {
 	// klog.SetOutput(os.Stdout)
 	return &schema.Resource{
-		Create: resourceKubernetesYAMLCreate,
+		Create: func(d *schema.ResourceData, meta interface{}) error {
+			return backoff.Retry(func() error {
+				err := resourceKubernetesYAMLCreate(d, meta)
+				if err != nil {
+					return err
+				}
+				return err
+			}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), k8srawCreateRetryCount))
+		},
 		Read:   resourceKubernetesYAMLRead,
 		Exists: resourceKubernetesYAMLExists,
 		Delete: resourceKubernetesYAMLDelete,

@@ -1,7 +1,9 @@
-provider "k8sraw" {}
+provider "k8sraw" {
+  create_retry_count = 15
+}
 
 resource "k8sraw_yaml" "test" {
-  depends_on = ["k8sraw_yaml.definecrd"]
+  # depends_on = ["k8sraw_yaml.definecrd"]
 
     yaml_body = <<YAML
 apiVersion: couchbase.com/v1
