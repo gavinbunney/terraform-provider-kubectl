@@ -269,6 +269,12 @@ func getRestClientFromYaml(yaml string, provider KubeProvider) (dynamic.Resource
 	}
 
 	resource := k8sschema.GroupVersionResource{Group: apiResource.Group, Version: apiResource.Version, Resource: apiResource.Name}
+	// For core services (ServiceAccount, Service etc) the group is incorrectly parsed.
+	// "v1" should be empty group and "v1" for verion
+	if resource.Group == "v1" && resource.Version == "" {
+		resource.Group = ""
+		resource.Version = "v1"
+	}
 	client := dynamic.NewForConfigOrDie(&config).Resource(resource)
 
 	if apiResource.Namespaced {
