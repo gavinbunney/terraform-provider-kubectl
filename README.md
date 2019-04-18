@@ -44,6 +44,43 @@ spec:
 }
 ```
 
+The provider also support a retry when creating the resource `create_retry_count = 15`. This is useful for `CRD`s who's operators are also being created during the `terraform` operation to allow time for the `CRD` definition to be created in the cluster. 
+
+```hcl
+provider "k8sraw" {
+  create_retry_count = 15
+}
+
+resource "k8sraw_yaml" "test" {
+    yaml_body = <<YAML
+apiVersion: couchbase.com/v1
+kind: CouchbaseCluster
+metadata:
+  name: name-here-cluster
+spec:
+  baseImage: name-here-image
+  version: name-here-image-version
+  authSecret: name-here-operator-secret-name
+  exposeAdminConsole: true
+  adminConsoleServices:
+    - data
+  cluster:
+    dataServiceMemoryQuota: 256
+    indexServiceMemoryQuota: 256
+    searchServiceMemoryQuota: 256
+    eventingServiceMemoryQuota: 256
+    analyticsServiceMemoryQuota: 1024
+    indexStorageSetting: memory_optimized
+    autoFailoverTimeout: 120
+    autoFailoverMaxCount: 3
+    autoFailoverOnDataDiskIssues: true
+    autoFailoverOnDataDiskIssuesTimePeriod: 120
+    autoFailoverServerGroup: false
+    YAML
+}
+```
+
+
 ## Building The Provider
 
 Clone repository to: `$GOPATH/src/github.com/terraform-providers/terraform-provider-kubernetes`

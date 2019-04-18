@@ -19,6 +19,12 @@ import (
 func Provider() terraform.ResourceProvider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
+			"create_retry_count": {
+				Type:        schema.TypeInt,
+				Optional:    true,
+				DefaultFunc: func() (interface{}, error) { return 1, nil },
+				Description: "Defines the number of attempts any create action will take",
+			},
 			"host": {
 				Type:        schema.TypeString,
 				Optional:    true,
@@ -115,6 +121,8 @@ func Provider() terraform.ResourceProvider {
 // KubeProvider func to return client and config to work with K8s API
 type KubeProvider func() (*kubernetes.Clientset, restclient.Config)
 
+var k8srawCreateRetryCount uint64
+
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 
 	var cfg *restclient.Config
@@ -123,6 +131,8 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 		// Config file loading
 		cfg, err = tryLoadingConfigFile(d)
 	}
+
+	k8srawCreateRetryCount = uint64(d.Get("create_retry_count").(int))
 
 	if err != nil {
 		return nil, err

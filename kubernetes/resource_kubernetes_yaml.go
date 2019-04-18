@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/cenkalti/backoff"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/icza/dyno"
 	yamlParser "gopkg.in/yaml.v2"
@@ -22,7 +23,15 @@ import (
 func resourceKubernetesYAML() *schema.Resource {
 	// klog.SetOutput(os.Stdout)
 	return &schema.Resource{
-		Create: resourceKubernetesYAMLCreate,
+		Create: func(d *schema.ResourceData, meta interface{}) error {
+			return backoff.Retry(func() error {
+				err := resourceKubernetesYAMLCreate(d, meta)
+				if err != nil {
+					return err
+				}
+				return err
+			}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), k8srawCreateRetryCount))
+		},
 		Read:   resourceKubernetesYAMLRead,
 		Exists: resourceKubernetesYAMLExists,
 		Delete: resourceKubernetesYAMLDelete,
@@ -269,6 +278,12 @@ func getRestClientFromYaml(yaml string, provider KubeProvider) (dynamic.Resource
 	}
 
 	resource := k8sschema.GroupVersionResource{Group: apiResource.Group, Version: apiResource.Version, Resource: apiResource.Name}
+	// For core services (ServiceAccount, Service etc) the group is incorrectly parsed.
+	// "v1" should be empty group and "v1" for verion
+	if resource.Group == "v1" && resource.Version == "" {
+		resource.Group = ""
+		resource.Version = "v1"
+	}
 	client := dynamic.NewForConfigOrDie(&config).Resource(resource)
 
 	if apiResource.Namespaced {
