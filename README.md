@@ -10,7 +10,17 @@ While the work is ongoing to provide a better experience in the official provide
 
 Currently the code has been tried on a limited number of use cases. I would expect wider use to find issue, please raise them on the repository and make contributions to resolve them if you can. 
 
+### Warning: When changes detected this will delete and re-create resources
 
+When a change is detected between the `yaml` defined in your`hcl` and the resource in the cluster the provider will, assuming you approve the change, execute a `delete` followed by a `create` on the resource. **IT DOESN'T PATCH THE EXISTING RESOURCE** it will remove and then recreate it. 
+
+For lots of use cases this is fine, for others it's not. I'd be interested in accepting a PR to enable Patch support but have no plans to work on it myself. 
+
+### Support around Issues/PRs
+
+There is no support around this provider. If it missing a feature or it has a bug feel free to raise an issue but there is no time allocated to maintian and resolve issues.
+
+Likewise PRs are welcome but the time to review and merge may vary based on my availability. 
 
 ## Using the provider
 
