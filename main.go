@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/hashicorp/terraform/plugin"
-	kubernetes "github.com/lawrencegripper/terraform-provider-kubernetes-yaml/kubernetes"
+	kubernetes "github.com/nabancard/terraform-provider-kubernetes-yaml/kubernetes"
 )
 
 func main() {
