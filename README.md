@@ -1,5 +1,7 @@
 # Kubernetes YAML Provider 
 
+*NOTE* this is a fork of the original provider provided by [lawrecncegripper](https://github.com/lawrencegripper/terraform-provider-kubernetes-yaml).  This fork upgraded to Go 11 Modules, and Terraform `0.12.x`. 
+
 [![Build Status](https://travis-ci.com/lawrencegripper/terraform-provider-kubernetes-yaml.svg?branch=master)](https://travis-ci.com/lawrencegripper/terraform-provider-kubernetes-yaml)
 
 This was originally proposed [as a PR to add a YAML resource](https://github.com/terraform-providers/terraform-provider-kubernetes/pull/195) into the official Terraform provider. 
