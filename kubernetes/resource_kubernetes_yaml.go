@@ -40,12 +40,11 @@ func resourceKubernetesYAML() *schema.Resource {
 			State: schema.ImportStatePassthrough,
 		},
 		CustomizeDiff: func(d *schema.ResourceDiff, meta interface{}) error {
-			// Enable force new on yaml_body field.
-			// This can't be done in the schema as it will fail internal validation
-			// as all fields would be 'ForceNew' so no 'Update' func is needed.
-			// but as we manually trigger an update in this compare function
-			// we need the update function specified.
-			d.ForceNew("yaml_body")
+
+			// trigger a recreation if the yaml-body has any pending changes
+			if d.Get("force_new").(bool) {
+				d.ForceNew("yaml_body")
+			}
 
 			// Get the UID of the K8s resource as it was when the `resourceKubernetesYAMLCreate` func completed.
 			createdAtUID := d.Get("uid").(string)
@@ -115,6 +114,12 @@ func resourceKubernetesYAML() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
+			"force_new": {
+				Type:        schema.TypeBool,
+				Description: "Default to update in-place. Setting to true will delete and create the kubernetes instead.",
+				Optional:    true,
+				Default:     false,
+			},
 		},
 	}
 }
@@ -137,6 +142,39 @@ func resourceKubernetesYAMLCreate(d *schema.ResourceData, meta interface{}) erro
 
 	d.SetId(response.GetSelfLink())
 	// Capture the UID and Resource_version at time of creation
+	// this allows us to diff these against the actual values
+	// read in by the 'resourceKubernetesYAMLRead'
+	d.Set("uid", response.GetUID())
+	d.Set("resource_version", response.GetResourceVersion())
+	comparisonString, err := compareMaps(rawObj.UnstructuredContent(), response.UnstructuredContent())
+	if err != nil {
+		return err
+	}
+
+	log.Printf("[COMPAREOUT] %+v\n", comparisonString)
+	d.Set("yaml_incluster", comparisonString)
+
+	return resourceKubernetesYAMLRead(d, meta)
+}
+
+func resourceKubernetesYAMLUpdate(d *schema.ResourceData, meta interface{}) error {
+	yaml := d.Get("yaml_body").(string)
+
+	// Create a client to talk to the resource API based on the APIVersion and Kind
+	// defined in the YAML
+	client, rawObj, err := getRestClientFromYaml(yaml, meta.(KubeProvider))
+	if err != nil {
+		return fmt.Errorf("failed to create kubernetes rest client for resource: %+v", err)
+	}
+
+	// Update the resource in Kubernetes
+	response, err := client.Update(rawObj, meta_v1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to update resource in kubernetes: %+v", err)
+	}
+
+	d.SetId(response.GetSelfLink())
+	// Capture the UID and Resource_version at time of update
 	// this allows us to diff these against the actual values
 	// read in by the 'resourceKubernetesYAMLRead'
 	d.Set("uid", response.GetUID())
@@ -204,14 +242,6 @@ func resourceKubernetesYAMLDelete(d *schema.ResourceData, meta interface{}) erro
 	d.SetId("")
 
 	return nil
-}
-
-func resourceKubernetesYAMLUpdate(d *schema.ResourceData, meta interface{}) error {
-	err := resourceKubernetesYAMLDelete(d, meta)
-	if err != nil {
-		return err
-	}
-	return resourceKubernetesYAMLCreate(d, meta)
 }
 
 func resourceKubernetesYAMLExists(d *schema.ResourceData, meta interface{}) (bool, error) {

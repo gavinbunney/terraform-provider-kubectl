@@ -1,8 +1,8 @@
 # Kubernetes YAML Provider 
 
-*NOTE* this is a fork of the original provider provided by [lawrecncegripper](https://github.com/lawrencegripper/terraform-provider-kubernetes-yaml).  This fork upgraded to Go 11 Modules, and Terraform `0.12.x`. 
+*NOTE* this is a fork (of a fork!) of the original provider provided by [nabancard and lawrecncegripper](https://github.com/nabancard/terraform-provider-kubernetes-yaml). This fork adds support for inplace updates of kubernetes resources.
 
-[![Build Status](https://travis-ci.com/lawrencegripper/terraform-provider-kubernetes-yaml.svg?branch=master)](https://travis-ci.com/lawrencegripper/terraform-provider-kubernetes-yaml)
+[![Build Status](https://travis-ci.org/gavinbunney/terraform-provider-kubernetes-yaml.svg?branch=master)](https://travis-ci.org/gavinbunney/terraform-provider-kubernetes-yaml)
 
 This was originally proposed [as a PR to add a YAML resource](https://github.com/terraform-providers/terraform-provider-kubernetes/pull/195) into the official Terraform provider. 
 
@@ -11,12 +11,6 @@ While the work is ongoing to provide a better experience in the official provide
 ## Status: Experimental
 
 Currently the code has been tried on a limited number of use cases. I would expect wider use to find issue, please raise them on the repository and make contributions to resolve them if you can. 
-
-### Warning: When changes detected this will delete and re-create resources
-
-When a change is detected between the `yaml` defined in your`hcl` and the resource in the cluster the provider will, assuming you approve the change, execute a `delete` followed by a `create` on the resource. **IT DOESN'T PATCH THE EXISTING RESOURCE** it will remove and then recreate it. 
-
-For lots of use cases this is fine, for others it's not. I'd be interested in accepting a PR to enable Patch support but have no plans to work on it myself. 
 
 ### Support around Issues/PRs
 
@@ -98,14 +92,14 @@ spec:
 Clone repository to: `$GOPATH/src/github.com/terraform-providers/terraform-provider-kubernetes`
 
 ```sh
-$ mkdir -p $GOPATH/src/github.com/lawrencegripper; cd $GOPATH/src/github.com/lawrencegripper
-$ git clone git@github.com:lawrencegripper/terraform-provider-kubernetes-yaml
+$ mkdir -p $GOPATH/src/github.com/gavinbunney; cd $GOPATH/src/github.com/gavinbunney
+$ git clone git@github.com:gavinbunney/terraform-provider-kubernetes-yaml
 ```
 
 Enter the provider directory and build the provider
 
 ```sh
-$ cd $GOPATH/src/github.com/lawrencegripper/terraform-provider-kubernetes-yaml
+$ cd $GOPATH/src/github.com/gavinbunney/terraform-provider-kubernetes-yaml
 $ make build
 ```
 
