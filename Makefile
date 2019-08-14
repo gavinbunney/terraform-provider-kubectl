@@ -5,7 +5,6 @@ PKG_NAME=kubernetes
 default: build
 
 build: fmtcheck
-	go get
 	go install
 
 test: fmtcheck
