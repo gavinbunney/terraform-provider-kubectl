@@ -1,6 +1,7 @@
 TEST?=$$(go list ./... |grep -v 'vendor')
 GOFMT_FILES?=$$(find . -name '*.go' |grep -v vendor)
 PKG_NAME=kubernetes
+export GO111MODULE=on
 
 default: build
 
