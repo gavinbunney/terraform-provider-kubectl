@@ -6,6 +6,9 @@ go:
   - "1.11.x"
 dist: xenial
 
+before_install:
+  - openssl aes-256-cbc -K $encrypted_877ffd1bc544_key -iv $encrypted_877ffd1bc544_iv -in scripts/gogetcookie.sh.enc -out scripts/gogetcookie.sh -d
+
 install:
   - bash scripts/gogetcookie.sh
   - go get github.com/kardianos/govendor
