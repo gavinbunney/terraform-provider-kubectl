@@ -1,11 +1,11 @@
 resource "kubernetes_secret" "gitlfs_tls" {
   metadata {
-    name      = "name-here"
+    name = "name-here"
   }
 
-  data {
-    tls.crt = "somedata"
-    tls.key = "moredata"
+  data = {
+    tls_crt = "somedata"
+    tls_key = "moredata"
   }
 }
 
