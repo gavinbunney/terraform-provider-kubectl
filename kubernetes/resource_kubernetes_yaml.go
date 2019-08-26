@@ -46,6 +46,16 @@ func resourceKubernetesYAML() *schema.Resource {
 				d.ForceNew("yaml_body")
 			}
 
+			parsedYaml, err := parseYaml(d.Get("yaml_body").(string))
+			if err != nil {
+				return err
+			}
+
+			d.SetNew("api_version", parsedYaml.GetAPIVersion())
+			d.SetNew("kind", parsedYaml.GetKind())
+			d.SetNew("namespace", parsedYaml.GetNamespace())
+			d.SetNew("name", parsedYaml.GetName())
+
 			// Get the UID of the K8s resource as it was when the `resourceKubernetesYAMLCreate` func completed.
 			createdAtUID := d.Get("uid").(string)
 			// Get the UID of the K8s resource as it currently is in the cluster.
@@ -110,6 +120,26 @@ func resourceKubernetesYAML() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"api_version": {
+				Type:     schema.TypeString,
+				Computed: true,
+				ForceNew: true,
+			},
+			"kind": {
+				Type:     schema.TypeString,
+				Computed: true,
+				ForceNew: true,
+			},
+			"name": {
+				Type:     schema.TypeString,
+				Computed: true,
+				ForceNew: true,
+			},
+			"namespace": {
+				Type:     schema.TypeString,
+				Computed: true,
+				ForceNew: true,
+			},
 			"yaml_body": {
 				Type:     schema.TypeString,
 				Required: true,
@@ -141,6 +171,7 @@ func resourceKubernetesYAMLCreate(d *schema.ResourceData, meta interface{}) erro
 	}
 
 	d.SetId(response.GetSelfLink())
+
 	// Capture the UID and Resource_version at time of creation
 	// this allows us to diff these against the actual values
 	// read in by the 'resourceKubernetesYAMLRead'
@@ -263,32 +294,39 @@ func resourceKubernetesYAMLExists(d *schema.ResourceData, meta interface{}) (boo
 	return false, nil
 }
 
-func getRestClientFromYaml(yaml string, provider KubeProvider) (dynamic.ResourceInterface, *meta_v1_unstruct.Unstructured, error) {
-	// To make things play nice we need the JSON representation of the object as
-	// the `RawObj`
-	// 1. UnMarshal YAML into map
-	// 2. Marshal map into JSON
-	// 3. UnMarshal JSON into the Unstructured type so we get some K8s checking
-	// 4. Marshal back into JSON ... now we know it's likely to play nice with k8s
+// To make things play nice we need the JSON representation of the object as the `RawObj`
+// 1. UnMarshal YAML into map
+// 2. Marshal map into JSON
+// 3. UnMarshal JSON into the Unstructured type so we get some K8s checking
+func parseYaml(yaml string) (*meta_v1_unstruct.Unstructured, error) {
 	rawYamlParsed := &map[string]interface{}{}
 	err := yamlParser.Unmarshal([]byte(yaml), rawYamlParsed)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	rawJSON, err := json.Marshal(dyno.ConvertMapI2MapS(*rawYamlParsed))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	unstrut := meta_v1_unstruct.Unstructured{}
 	err = unstrut.UnmarshalJSON(rawJSON)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	unstructContent := unstrut.UnstructuredContent()
 	log.Printf("[UNSTRUCT]: %+v\n", unstructContent)
+
+	return &unstrut, nil
+}
+
+func getRestClientFromYaml(yaml string, provider KubeProvider) (dynamic.ResourceInterface, *meta_v1_unstruct.Unstructured, error) {
+	unstrut, err := parseYaml(yaml)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// Use the k8s Discovery service to find all valid APIs for this cluster
 	clientSet, config := provider()
@@ -302,7 +340,7 @@ func getRestClientFromYaml(yaml string, provider KubeProvider) (dynamic.Resource
 	}
 
 	// Validate that the APIVersion provided in the YAML is valid for this cluster
-	apiResource, exists := checkAPIResourceIsPresent(resources, unstrut)
+	apiResource, exists := checkAPIResourceIsPresent(resources, *unstrut)
 	if !exists {
 		return nil, nil, fmt.Errorf("resource provided in yaml isn't valid for cluster, check the APIVersion and Kind fields are valid")
 	}
@@ -321,10 +359,10 @@ func getRestClientFromYaml(yaml string, provider KubeProvider) (dynamic.Resource
 		if namespace == "" {
 			namespace = "default"
 		}
-		return client.Namespace(namespace), &unstrut, nil
+		return client.Namespace(namespace), unstrut, nil
 	}
 
-	return client, &unstrut, nil
+	return client, unstrut, nil
 }
 
 // checkAPIResourceIsPresent Loops through a list of available APIResources and
