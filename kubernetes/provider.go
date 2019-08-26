@@ -109,7 +109,9 @@ func Provider() terraform.ResourceProvider {
 			},
 		},
 
-		DataSourcesMap: map[string]*schema.Resource{},
+		DataSourcesMap: map[string]*schema.Resource{
+			"kubectl_filename_list": dataSourceKubectlFilenameList(),
+		},
 
 		ResourcesMap: map[string]*schema.Resource{
 			"kubectl_manifest": resourceKubectlManifest(),
