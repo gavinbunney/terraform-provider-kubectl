@@ -1,44 +1,26 @@
-# Kubernetes YAML Provider 
+# Kubernetes "kubectl" Provider 
 
-*NOTE* this is a fork (of a fork!) of the original provider provided by [nabancard and lawrecncegripper](https://github.com/nabancard/terraform-provider-kubernetes-yaml). This fork adds support for inplace updates of kubernetes resources.
+[![Build Status](https://travis-ci.org/gavinbunney/terraform-provider-kubectl.svg?branch=master)](https://travis-ci.org/gavinbunney/terraform-provider-kubectl)
 
-[![Build Status](https://travis-ci.org/gavinbunney/terraform-provider-kubectl.svg?branch=master)](https://travis-ci.org/gavinbunney/terraform-provider-kubectl) 
+This is a fork (of a fork!) of the original provider provided by [nabancard and lawrecncegripper](https://github.com/nabancard/terraform-provider-kubernetes-yaml).
+
+This fork adds :
+1. Support for in-place updates of kubernetes resources
+2. Data resource to iterate over directories of manifests
 
 ## Using the provider
 
-Download a binary for your system from the release page and remove the `-os-arch` details so you're left with `terraform-provider-kubectl`. Use `chmod +x` to make it executable and then either place it at the root of your Terraform folder or in the Terraform plugin folder on your system. 
+Download a binary for your system from the release page and remove the `-os-arch` details so you're left with `terraform-provider-kubectl`.
+Use `chmod +x` to make it executable and then either place it at the root of your Terraform folder or in the Terraform plugin folder on your system. 
 
-Then you can create a YAML resources by using the following Terraform:
-
-```hcl
-provider "kubectl" {}
-
-resource "kubectl_manifest" "test" {
-    yaml_body = <<YAML
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: test-ingress
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    azure/frontdoor: enabled
-spec:
-  rules:
-  - http:
-      paths:
-      - path: /testpath
-        backend:
-          serviceName: test
-          servicePort: 80
-    YAML
-}
-```
-
-The provider also support a retry when creating the resource `create_retry_count = 15`. This is useful for `CRD`s who's operators are also being created during the `terraform` operation to allow time for the `CRD` definition to be created in the cluster. 
+### Quick Start
 
 ```hcl
 provider "kubectl" {
-  create_retry_count = 15
+  host                   = var.eks_cluster_endpoint
+  cluster_ca_certificate = base64decode(var.eks_cluster_ca)
+  token                  = data.aws_eks_cluster_auth.main.token
+  load_config_file       = false
 }
 
 resource "kubectl_manifest" "test" {
@@ -66,18 +48,84 @@ spec:
     autoFailoverOnDataDiskIssues: true
     autoFailoverOnDataDiskIssuesTimePeriod: 120
     autoFailoverServerGroup: false
-    YAML
+YAML
 }
 ```
 
+### Provider Configuration
 
-## Building The Provider
+The provider supports the same configuration parameters as the [Kubernetes Terraform Provider](https://www.terraform.io/docs/providers/kubernetes/index.html)
 
-Clone repository to: `$GOPATH/src/github.com/terraform-providers/terraform-provider-kubernetes`
+```hcl
+provider "kubectl" {
+  host                   = var.eks_cluster_endpoint
+  cluster_ca_certificate = base64decode(var.eks_cluster_ca)
+  token                  = data.aws_eks_cluster_auth.main.token
+  load_config_file       = false
+}
+```
+
+The provider has an additional paramater `create_retry_count` that allows kubernetes commands to be retried on failure.
+This is useful if you have flaky CRDs or network connections and need to wait for the cluster state to be back in quorum. 
+
+```hcl
+provider "kubectl" {
+  create_retry_count = 15
+}
+```
+
+### Create Kubernetes Resources from YAML
+
+Then you can create a YAML resources by using the following Terraform:
+
+```hcl
+resource "kubectl_manifest" "test" {
+    yaml_body = <<YAML
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: test-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    azure/frontdoor: enabled
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /testpath
+        backend:
+          serviceName: test
+          servicePort: 80
+YAML
+}
+```
+
+### Load Kubernetes Manifests from file
+
+This provider also provides a `data` resource `kubectl_filename_list` to enable ease of working with directories of kubernetes manifests.
+
+```hcl
+data "kubectl_filename_list" "manifests" {
+    pattern = "./manifests/*.yaml"
+}
+
+resource "kubectl_manifest" "test" {
+    count = length(data.kubectl_filename_list.manifests.matches)
+    yaml_body = file(element(data.kubectl_filename_list.manifests.matches, count.index))
+}
+```
+
+## Development Guide
+
+If you wish to work on the provider, you'll first need [Go](http://www.golang.org) installed on your machine (version 1.11+ is *required*).
+You'll also need to correctly setup a [GOPATH](http://golang.org/doc/code.html#GOPATH), as well as adding `$GOPATH/bin` to your `$PATH`.
+
+To compile the provider, run `make build`. This will build the provider and put the provider binary in the `$GOPATH/bin` directory.
+
+### Building The Provider
 
 ```sh
-$ mkdir -p $GOPATH/src/github.com/gavinbunney; cd $GOPATH/src/github.com/gavinbunney
-$ git clone git@github.com:gavinbunney/terraform-provider-kubectl
+$ go get github.com/gavinbunney/terraform-provider-kubectl
 ```
 
 Enter the provider directory and build the provider
@@ -87,9 +135,13 @@ $ cd $GOPATH/src/github.com/gavinbunney/terraform-provider-kubectl
 $ make build
 ```
 
-## Developing the Provider
-
 ### Testing
+
+In order to test the provider, you can simply run `make test`.
+
+```sh
+$ make test
+```
 
 The provide uses MiniKube to run integration tests. These tests look for any `*.tf` files in the `_examples` folder and run an `plan`, `apply`, `refresh` and `plan` loop over each file. 
 
@@ -98,29 +150,6 @@ Inside each file the string `name-here` is replaced with a unique name during te
 Each scenario can be placed in a folder, to help others navigate and use the examples, and added to the [README.MD](./_examples/README.MD). 
 
 > Note: The test infrastructure doesn't support multi-file TF configurations so ensure your test scenario is in a single file. 
-
-### Debugging
-
-Using `vscode` with `delve` and `golang` configured the launch task in the repo will start a debugging session for the tests. Open the repo and press `F5` to get started.
-
-### Development Environment
-
-If you wish to work on the provider, you'll first need [Go](http://www.golang.org) installed on your machine (version 1.9+ is *required*). You'll also need to correctly setup a [GOPATH](http://golang.org/doc/code.html#GOPATH), as well as adding `$GOPATH/bin` to your `$PATH`.
-
-To compile the provider, run `make build`. This will build the provider and put the provider binary in the `$GOPATH/bin` directory.
-
-```sh
-$ make build
-...
-$ $GOPATH/bin/terraform-provider-kubernetes
-...
-```
-
-In order to test the provider, you can simply run `make test`.
-
-```sh
-$ make test
-```
 
 In order to run the full suite of Acceptance tests, run `make testacc`.
 
