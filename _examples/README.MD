@@ -10,4 +10,4 @@
 
 ## Tests and Bugs
 
-- [Fix for 'got string expected struct'](./ingress_complex/complex_ingress.tf) this also provides a sample of using both the `k8sraw` provider and the `kubernetes` provider in the same TF config. 
+- [Fix for 'got string expected struct'](./ingress_complex/complex_ingress.tf) this also provides a sample of using both the `kubectl` provider and the `kubernetes` provider in the same TF config. 

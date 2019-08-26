@@ -16,7 +16,7 @@ var testAccProvider *schema.Provider
 func init() {
 	testAccProvider = Provider().(*schema.Provider)
 	testAccProviders = map[string]terraform.ResourceProvider{
-		"k8sraw":     testAccProvider,
+		"kubectl":     testAccProvider,
 		"kubernetes": upstream.Provider(),
 	}
 }
@@ -27,19 +27,19 @@ func TestProvider(t *testing.T) {
 	}
 }
 
-func testAccCheckK8srawDestroy(s *terraform.State) error {
-	return testAccCheckK8srawStatus(s, false)
+func testAccCheckkubectlDestroy(s *terraform.State) error {
+	return testAccCheckkubectlStatus(s, false)
 }
 
-func testAccCheckK8srawExists(s *terraform.State) error {
-	return testAccCheckK8srawStatus(s, true)
+func testAccCheckkubectlExists(s *terraform.State) error {
+	return testAccCheckkubectlStatus(s, true)
 }
 
-func testAccCheckK8srawStatus(s *terraform.State, shouldExist bool) error {
+func testAccCheckkubectlStatus(s *terraform.State, shouldExist bool) error {
 	conn, _ := testAccProvider.Meta().(KubeProvider)()
 
 	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "k8sraw_yaml" {
+		if rs.Type != "kubectl_manifest" {
 			continue
 		}
 

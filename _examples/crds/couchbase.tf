@@ -1,9 +1,9 @@
-provider "k8sraw" {
+provider "kubectl" {
   create_retry_count = 15
 }
 
-resource "k8sraw_yaml" "test" {
-  depends_on = ["k8sraw_yaml.definecrd"]
+resource "kubectl_manifest" "test" {
+  depends_on = ["kubectl_manifest.definecrd"]
 
     yaml_body = <<YAML
 apiVersion: couchbase.com/v1
@@ -63,7 +63,7 @@ spec:
 }
 
 
-resource "k8sraw_yaml" "definecrd" {
+resource "kubectl_manifest" "definecrd" {
     yaml_body = <<YAML
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition

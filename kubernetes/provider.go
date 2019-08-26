@@ -112,7 +112,7 @@ func Provider() terraform.ResourceProvider {
 		DataSourcesMap: map[string]*schema.Resource{},
 
 		ResourcesMap: map[string]*schema.Resource{
-			"k8sraw_yaml": resourceKubernetesYAML(),
+			"kubectl_manifest": resourceKubectlManifest(),
 		},
 		ConfigureFunc: providerConfigure,
 	}
@@ -121,7 +121,7 @@ func Provider() terraform.ResourceProvider {
 // KubeProvider func to return client and config to work with K8s API
 type KubeProvider func() (*kubernetes.Clientset, restclient.Config)
 
-var k8srawCreateRetryCount uint64
+var kubectlCreateRetryCount uint64
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 
@@ -132,7 +132,7 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 		cfg, err = tryLoadingConfigFile(d)
 	}
 
-	k8srawCreateRetryCount = uint64(d.Get("create_retry_count").(int))
+	kubectlCreateRetryCount = uint64(d.Get("create_retry_count").(int))
 
 	if err != nil {
 		return nil, err

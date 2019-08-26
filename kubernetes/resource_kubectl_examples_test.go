@@ -24,7 +24,7 @@ func visit(files *[]string) filepath.WalkFunc {
 	}
 }
 
-func TestAccK8srawYaml(t *testing.T) {
+func TestAcckubectlYaml(t *testing.T) {
 	var files []string
 	root := "../_examples"
 	err := filepath.Walk(root, visit(&files))
@@ -38,16 +38,16 @@ func TestAccK8srawYaml(t *testing.T) {
 
 			resource.Test(t, resource.TestCase{
 				PreCheck:      func() {},
-				IDRefreshName: "k8sraw_yaml.test",
+				IDRefreshName: "kubectl_manifest.test",
 				Providers:     testAccProviders,
-				CheckDestroy:  testAccCheckK8srawDestroy,
+				CheckDestroy:  testAccCheckkubectlDestroy,
 				Steps: []resource.TestStep{
 					{
-						Config: testk8sRawYamlLoadTfExample(path, name),
+						Config: testkubectlYamlLoadTfExample(path, name),
 						Check: resource.ComposeAggregateTestCheckFunc(
-							testAccCheckK8srawExists,
-							resource.TestCheckResourceAttrSet("k8sraw_yaml.test", "yaml_incluster"),
-							resource.TestCheckResourceAttrSet("k8sraw_yaml.test", "live_yaml_incluster"),
+							testAccCheckkubectlExists,
+							resource.TestCheckResourceAttrSet("kubectl_manifest.test", "yaml_incluster"),
+							resource.TestCheckResourceAttrSet("kubectl_manifest.test", "live_manifest_incluster"),
 						),
 					},
 				},
@@ -56,7 +56,7 @@ func TestAccK8srawYaml(t *testing.T) {
 	}
 }
 
-func testk8sRawYamlLoadTfExample(path, name string) string {
+func testkubectlYamlLoadTfExample(path, name string) string {
 
 	dat, err := ioutil.ReadFile(path)
 	if err != nil {

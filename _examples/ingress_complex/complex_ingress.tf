@@ -9,7 +9,7 @@ resource "kubernetes_secret" "gitlfs_tls" {
   }
 }
 
-resource "k8sraw_yaml" "test" {
+resource "kubectl_manifest" "test" {
   yaml_body = <<YAML
 apiVersion: extensions/v1beta1
 kind: Ingress

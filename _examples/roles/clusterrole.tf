@@ -1,7 +1,7 @@
-provider "k8sraw" {}
+provider "kubectl" {}
 
 
-resource "k8sraw_yaml" "account" {
+resource "kubectl_manifest" "account" {
     yaml_body = <<YAML
 apiVersion: v1
 kind: ServiceAccount
@@ -11,8 +11,8 @@ metadata:
     YAML
 }
 
-resource "k8sraw_yaml" "test" {
-  depends_on = ["k8sraw_yaml.account"]
+resource "kubectl_manifest" "test" {
+  depends_on = ["kubectl_manifest.account"]
   yaml_body = <<YAML
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

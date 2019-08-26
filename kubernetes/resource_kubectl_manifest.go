@@ -20,22 +20,22 @@ import (
 	// "k8s.io/klog"
 )
 
-func resourceKubernetesYAML() *schema.Resource {
+func resourceKubectlManifest() *schema.Resource {
 	// klog.SetOutput(os.Stdout)
 	return &schema.Resource{
 		Create: func(d *schema.ResourceData, meta interface{}) error {
 			return backoff.Retry(func() error {
-				err := resourceKubernetesYAMLCreate(d, meta)
+				err := resourceKubectlManifestCreate(d, meta)
 				if err != nil {
 					return err
 				}
 				return err
-			}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), k8srawCreateRetryCount))
+			}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), kubectlCreateRetryCount))
 		},
-		Read:   resourceKubernetesYAMLRead,
-		Exists: resourceKubernetesYAMLExists,
-		Delete: resourceKubernetesYAMLDelete,
-		Update: resourceKubernetesYAMLUpdate,
+		Read:   resourceKubectlManifestRead,
+		Exists: resourceKubectlManifestExists,
+		Delete: resourceKubectlManifestDelete,
+		Update: resourceKubectlManifestUpdate,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
@@ -56,7 +56,7 @@ func resourceKubernetesYAML() *schema.Resource {
 			d.SetNew("namespace", parsedYaml.GetNamespace())
 			d.SetNew("name", parsedYaml.GetName())
 
-			// Get the UID of the K8s resource as it was when the `resourceKubernetesYAMLCreate` func completed.
+			// Get the UID of the K8s resource as it was when the `resourceKubectlManifestCreate` func completed.
 			createdAtUID := d.Get("uid").(string)
 			// Get the UID of the K8s resource as it currently is in the cluster.
 			UID, exists := d.Get("live_uid").(string)
@@ -64,7 +64,7 @@ func resourceKubernetesYAML() *schema.Resource {
 				return nil
 			}
 
-			// Get the ResourceVersion of the K8s resource as it was when the `resourceKubernetesYAMLCreate` func completed.
+			// Get the ResourceVersion of the K8s resource as it was when the `resourceKubectlManifestCreate` func completed.
 			createdAtResourceVersion := d.Get("resource_version").(string)
 			// Get it as it currently is in the cluster
 			resourceVersion, exists := d.Get("live_resource_version").(string)
@@ -84,7 +84,7 @@ func resourceKubernetesYAML() *schema.Resource {
 				log.Printf("[CUSTOMDIFF] DETECTED RESOURCE VERSION %s vs %s", resourceVersion, createdAtResourceVersion)
 				// Check that the fields specified in our YAML for diff against cluster representation
 				stateYaml := d.Get("yaml_incluster").(string)
-				liveStateYaml := d.Get("live_yaml_incluster").(string)
+				liveStateYaml := d.Get("live_manifest_incluster").(string)
 				if stateYaml != liveStateYaml {
 					log.Printf("[CUSTOMDIFF] DETECTED YAML STATE %s vs %s", stateYaml, liveStateYaml)
 					d.SetNewComputed("yaml_incluster")
@@ -116,7 +116,7 @@ func resourceKubernetesYAML() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"live_yaml_incluster": {
+			"live_manifest_incluster": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
@@ -154,7 +154,7 @@ func resourceKubernetesYAML() *schema.Resource {
 	}
 }
 
-func resourceKubernetesYAMLCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceKubectlManifestCreate(d *schema.ResourceData, meta interface{}) error {
 	yaml := d.Get("yaml_body").(string)
 
 	// Create a client to talk to the resource API based on the APIVersion and Kind
@@ -174,7 +174,7 @@ func resourceKubernetesYAMLCreate(d *schema.ResourceData, meta interface{}) erro
 
 	// Capture the UID and Resource_version at time of creation
 	// this allows us to diff these against the actual values
-	// read in by the 'resourceKubernetesYAMLRead'
+	// read in by the 'resourceKubectlManifestRead'
 	d.Set("uid", response.GetUID())
 	d.Set("resource_version", response.GetResourceVersion())
 	comparisonString, err := compareMaps(rawObj.UnstructuredContent(), response.UnstructuredContent())
@@ -185,10 +185,10 @@ func resourceKubernetesYAMLCreate(d *schema.ResourceData, meta interface{}) erro
 	log.Printf("[COMPAREOUT] %+v\n", comparisonString)
 	d.Set("yaml_incluster", comparisonString)
 
-	return resourceKubernetesYAMLRead(d, meta)
+	return resourceKubectlManifestRead(d, meta)
 }
 
-func resourceKubernetesYAMLUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceKubectlManifestUpdate(d *schema.ResourceData, meta interface{}) error {
 	yaml := d.Get("yaml_body").(string)
 
 	// Create a client to talk to the resource API based on the APIVersion and Kind
@@ -207,7 +207,7 @@ func resourceKubernetesYAMLUpdate(d *schema.ResourceData, meta interface{}) erro
 	d.SetId(response.GetSelfLink())
 	// Capture the UID and Resource_version at time of update
 	// this allows us to diff these against the actual values
-	// read in by the 'resourceKubernetesYAMLRead'
+	// read in by the 'resourceKubectlManifestRead'
 	d.Set("uid", response.GetUID())
 	d.Set("resource_version", response.GetResourceVersion())
 	comparisonString, err := compareMaps(rawObj.UnstructuredContent(), response.UnstructuredContent())
@@ -218,10 +218,10 @@ func resourceKubernetesYAMLUpdate(d *schema.ResourceData, meta interface{}) erro
 	log.Printf("[COMPAREOUT] %+v\n", comparisonString)
 	d.Set("yaml_incluster", comparisonString)
 
-	return resourceKubernetesYAMLRead(d, meta)
+	return resourceKubectlManifestRead(d, meta)
 }
 
-func resourceKubernetesYAMLRead(d *schema.ResourceData, meta interface{}) error {
+func resourceKubectlManifestRead(d *schema.ResourceData, meta interface{}) error {
 	yaml := d.Get("yaml_body").(string)
 
 	// Create a client to talk to the resource API based on the APIVersion and Kind
@@ -250,12 +250,12 @@ func resourceKubernetesYAMLRead(d *schema.ResourceData, meta interface{}) error 
 		return err
 	}
 
-	d.Set("live_yaml_incluster", comparisonOutput)
+	d.Set("live_manifest_incluster", comparisonOutput)
 
 	return nil
 }
 
-func resourceKubernetesYAMLDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceKubectlManifestDelete(d *schema.ResourceData, meta interface{}) error {
 	yaml := d.Get("yaml_body").(string)
 
 	client, rawObj, err := getRestClientFromYaml(yaml, meta.(KubeProvider))
@@ -275,7 +275,7 @@ func resourceKubernetesYAMLDelete(d *schema.ResourceData, meta interface{}) erro
 	return nil
 }
 
-func resourceKubernetesYAMLExists(d *schema.ResourceData, meta interface{}) (bool, error) {
+func resourceKubectlManifestExists(d *schema.ResourceData, meta interface{}) (bool, error) {
 	yaml := d.Get("yaml_body").(string)
 
 	client, rawObj, err := getRestClientFromYaml(yaml, meta.(KubeProvider))

@@ -2,21 +2,7 @@
 
 *NOTE* this is a fork (of a fork!) of the original provider provided by [nabancard and lawrecncegripper](https://github.com/nabancard/terraform-provider-kubernetes-yaml). This fork adds support for inplace updates of kubernetes resources.
 
-[![Build Status](https://travis-ci.org/gavinbunney/terraform-provider-kubectl.svg?branch=master)](https://travis-ci.org/gavinbunney/terraform-provider-kubectl)
-
-This was originally proposed [as a PR to add a YAML resource](https://github.com/terraform-providers/terraform-provider-kubernetes/pull/195) into the official Terraform provider. 
-
-While the work is ongoing to provide a better experience in the official provider I've pulled the code out into a standalone provider which just provides the YAML resource. This allows for it to be used alongside the existing providers. 
-
-## Status: Experimental
-
-Currently the code has been tried on a limited number of use cases. I would expect wider use to find issue, please raise them on the repository and make contributions to resolve them if you can. 
-
-### Support around Issues/PRs
-
-There is no support around this provider. If it missing a feature or it has a bug feel free to raise an issue but there is no time allocated to maintian and resolve issues.
-
-Likewise PRs are welcome but the time to review and merge may vary based on my availability. 
+[![Build Status](https://travis-ci.org/gavinbunney/terraform-provider-kubectl.svg?branch=master)](https://travis-ci.org/gavinbunney/terraform-provider-kubectl) 
 
 ## Using the provider
 
@@ -27,7 +13,7 @@ Then you can create a YAML resources by using the following Terraform:
 ```hcl
 provider "kubectl" {}
 
-resource "kubectl_yaml" "test" {
+resource "kubectl_manifest" "test" {
     yaml_body = <<YAML
 apiVersion: extensions/v1beta1
 kind: Ingress
@@ -55,7 +41,7 @@ provider "kubectl" {
   create_retry_count = 15
 }
 
-resource "kubectl_yaml" "test" {
+resource "kubectl_manifest" "test" {
     yaml_body = <<YAML
 apiVersion: couchbase.com/v1
 kind: CouchbaseCluster
