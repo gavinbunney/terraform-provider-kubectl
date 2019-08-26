@@ -2,7 +2,7 @@
 
 *NOTE* this is a fork (of a fork!) of the original provider provided by [nabancard and lawrecncegripper](https://github.com/nabancard/terraform-provider-kubernetes-yaml). This fork adds support for inplace updates of kubernetes resources.
 
-[![Build Status](https://travis-ci.org/gavinbunney/terraform-provider-kubernetes-yaml.svg?branch=master)](https://travis-ci.org/gavinbunney/terraform-provider-kubernetes-yaml)
+[![Build Status](https://travis-ci.org/gavinbunney/terraform-provider-kubectl.svg?branch=master)](https://travis-ci.org/gavinbunney/terraform-provider-kubectl)
 
 This was originally proposed [as a PR to add a YAML resource](https://github.com/terraform-providers/terraform-provider-kubernetes/pull/195) into the official Terraform provider. 
 
@@ -20,16 +20,14 @@ Likewise PRs are welcome but the time to review and merge may vary based on my a
 
 ## Using the provider
 
-![demo](docs/yamldemo.gif)
-
-Download a binary for your system from the release page and remove the `-os-arch` details so you're left with `terraform-provider-k8sraw`. Use `chmod +x` to make it executable and then either place it at the root of your Terraform folder or in the Terraform plugin folder on your system. 
+Download a binary for your system from the release page and remove the `-os-arch` details so you're left with `terraform-provider-kubectl`. Use `chmod +x` to make it executable and then either place it at the root of your Terraform folder or in the Terraform plugin folder on your system. 
 
 Then you can create a YAML resources by using the following Terraform:
 
 ```hcl
-provider "k8sraw" {}
+provider "kubectl" {}
 
-resource "k8sraw_yaml" "test" {
+resource "kubectl_yaml" "test" {
     yaml_body = <<YAML
 apiVersion: extensions/v1beta1
 kind: Ingress
@@ -53,11 +51,11 @@ spec:
 The provider also support a retry when creating the resource `create_retry_count = 15`. This is useful for `CRD`s who's operators are also being created during the `terraform` operation to allow time for the `CRD` definition to be created in the cluster. 
 
 ```hcl
-provider "k8sraw" {
+provider "kubectl" {
   create_retry_count = 15
 }
 
-resource "k8sraw_yaml" "test" {
+resource "kubectl_yaml" "test" {
     yaml_body = <<YAML
 apiVersion: couchbase.com/v1
 kind: CouchbaseCluster
@@ -93,13 +91,13 @@ Clone repository to: `$GOPATH/src/github.com/terraform-providers/terraform-provi
 
 ```sh
 $ mkdir -p $GOPATH/src/github.com/gavinbunney; cd $GOPATH/src/github.com/gavinbunney
-$ git clone git@github.com:gavinbunney/terraform-provider-kubernetes-yaml
+$ git clone git@github.com:gavinbunney/terraform-provider-kubectl
 ```
 
 Enter the provider directory and build the provider
 
 ```sh
-$ cd $GOPATH/src/github.com/gavinbunney/terraform-provider-kubernetes-yaml
+$ cd $GOPATH/src/github.com/gavinbunney/terraform-provider-kubectl
 $ make build
 ```
 

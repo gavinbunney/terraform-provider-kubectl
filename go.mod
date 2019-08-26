@@ -1,4 +1,4 @@
-module github.com/gavinbunney/terraform-provider-kubernetes-yaml
+module github.com/gavinbunney/terraform-provider-kubectl
 
 go 1.12
 

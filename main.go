@@ -1,7 +1,7 @@
 package main
 
 import (
-	kubernetes "github.com/gavinbunney/terraform-provider-kubernetes-yaml/kubernetes"
+	kubernetes "github.com/gavinbunney/terraform-provider-kubectl/kubernetes"
 	"github.com/hashicorp/terraform/plugin"
 )
 

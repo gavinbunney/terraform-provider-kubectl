@@ -39,5 +39,5 @@ deploy:
   body: ${BODY}
   # yamllint disable-line rule:truthy
   on:
-    repo: gavinbunney/terraform-provider-kubernetes-yaml
+    repo: gavinbunney/terraform-provider-kubectl
     branch: master

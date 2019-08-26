@@ -29,7 +29,6 @@ website/vendor
 # Test exclusions
 !command/test-fixtures/**/*.tfstate
 !command/test-fixtures/**/.terraform/
-**/terraform-provider-kubernetes-yaml
-**/terraform-provider-k8sraw
+**/terraform-provider-kubectl
 k3s
 scripts/gogetcookie.sh
