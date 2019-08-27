@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/cenkalti/backoff"
 	"github.com/hashicorp/terraform/helper/schema"
@@ -14,14 +15,13 @@ import (
 	meta_v1_unstruct "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	meta_v1beta1 "k8s.io/apimachinery/pkg/apis/meta/v1beta1"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
+	yamlWriter "sigs.k8s.io/yaml"
 
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
-	// "k8s.io/klog"
 )
 
 func resourceKubectlManifest() *schema.Resource {
-	// klog.SetOutput(os.Stdout)
 	return &schema.Resource{
 		Create: func(d *schema.ResourceData, meta interface{}) error {
 			return backoff.Retry(func() error {
@@ -37,7 +37,97 @@ func resourceKubectlManifest() *schema.Resource {
 		Delete: resourceKubectlManifestDelete,
 		Update: resourceKubectlManifestUpdate,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+				idParts := strings.Split(d.Id(), "//")
+				if len(idParts) != 3 && len(idParts) != 4 {
+					return []*schema.ResourceData{}, fmt.Errorf("expected ID in format apiVersion//kind//name//namespace, received: %s", d.Id())
+				}
+
+				apiVersion := idParts[0]
+				kind := idParts[1]
+				name := idParts[2]
+
+				var yaml = ""
+				if len(idParts) == 4 {
+					yaml = fmt.Sprintf(`
+apiVersion: %s
+kind: %s
+metadata:
+  namespace: %s
+  name: %s
+`, apiVersion, kind, idParts[3], name)
+				} else {
+					yaml = fmt.Sprintf(`
+apiVersion: %s
+kind: %s
+metadata:
+  name: %s
+`, apiVersion, kind, name)
+				}
+
+				client, rawObj, err := getRestClientFromYaml(yaml, meta.(KubeProvider))
+
+				if err != nil {
+					return []*schema.ResourceData{}, fmt.Errorf("failed to create kubernetes rest client for import of resource: %s %s %s %+v %s %s", apiVersion, kind, name, err, yaml, rawObj)
+				}
+
+				// Get the resource from Kubernetes
+				metaObjLive, err := client.Get(rawObj.GetName(), meta_v1.GetOptions{})
+				if err != nil {
+					return []*schema.ResourceData{}, fmt.Errorf("failed to get resource '%s' from kubernetes: %+v", metaObjLive.GetSelfLink(), err)
+				}
+
+				if metaObjLive.GetUID() == "" {
+					return []*schema.ResourceData{}, fmt.Errorf("failed to parse item and get UUID: %+v", metaObjLive)
+				}
+
+				// Capture the UID and Resource_version from the cluster at the current time
+
+				d.Set("uid", metaObjLive.GetUID())
+				d.Set("live_uid", metaObjLive.GetUID())
+				d.Set("resource_version", metaObjLive.GetResourceVersion())
+				d.Set("live_resource_version", metaObjLive.GetResourceVersion())
+
+				comparisonOutput, err := compareMaps(metaObjLive.UnstructuredContent(), metaObjLive.UnstructuredContent())
+				if err != nil {
+					return []*schema.ResourceData{}, err
+				}
+
+				d.Set("yaml_incluster", comparisonOutput)
+				d.Set("live_manifest_incluster", comparisonOutput)
+
+				// set fields captured normally during creation/updates
+				d.Set("api_version", metaObjLive.GetAPIVersion())
+				d.Set("kind", metaObjLive.GetKind())
+				d.Set("namespace", metaObjLive.GetNamespace())
+				d.Set("name", metaObjLive.GetName())
+				d.Set("force_new", false)
+
+				// clear out fields user can't set to try and get parity with yaml_body
+				meta_v1_unstruct.RemoveNestedField(metaObjLive.Object, "metadata", "creationTimestamp")
+				meta_v1_unstruct.RemoveNestedField(metaObjLive.Object, "metadata", "resourceVersion")
+				meta_v1_unstruct.RemoveNestedField(metaObjLive.Object, "metadata", "selfLink")
+				meta_v1_unstruct.RemoveNestedField(metaObjLive.Object, "metadata", "uid")
+				meta_v1_unstruct.RemoveNestedField(metaObjLive.Object, "metadata", "annotations", "kubectl.kubernetes.io/last-applied-configuration")
+
+				if len(metaObjLive.GetAnnotations()) == 0 {
+					meta_v1_unstruct.RemoveNestedField(metaObjLive.Object, "metadata", "annotations")
+				}
+
+				yamlJson, err := metaObjLive.MarshalJSON()
+				if err != nil {
+					return []*schema.ResourceData{}, fmt.Errorf("failed to convert object to json: %+v", err)
+				}
+
+				yamlParsed, err := yamlWriter.JSONToYAML(yamlJson)
+				if err != nil {
+					return []*schema.ResourceData{}, fmt.Errorf("failed to convert json to yaml: %+v", err)
+				}
+
+				d.Set("yaml_body", string(yamlParsed))
+
+				return []*schema.ResourceData{d}, nil
+			},
 		},
 		CustomizeDiff: func(d *schema.ResourceDiff, meta interface{}) error {
 
@@ -161,7 +251,7 @@ func resourceKubectlManifestCreate(d *schema.ResourceData, meta interface{}) err
 	// defined in the YAML
 	client, rawObj, err := getRestClientFromYaml(yaml, meta.(KubeProvider))
 	if err != nil {
-		return fmt.Errorf("failed to create kubernetes rest client for resource: %+v", err)
+		return fmt.Errorf("failed to create kubernetes rest client for create of resource: %+v", err)
 	}
 
 	// Create the resource in Kubernetes
@@ -195,7 +285,7 @@ func resourceKubectlManifestUpdate(d *schema.ResourceData, meta interface{}) err
 	// defined in the YAML
 	client, rawObj, err := getRestClientFromYaml(yaml, meta.(KubeProvider))
 	if err != nil {
-		return fmt.Errorf("failed to create kubernetes rest client for resource: %+v", err)
+		return fmt.Errorf("failed to create kubernetes rest client for update of resource: %+v", err)
 	}
 
 	// Update the resource in Kubernetes
@@ -228,7 +318,7 @@ func resourceKubectlManifestRead(d *schema.ResourceData, meta interface{}) error
 	// defined in the YAML
 	client, rawObj, err := getRestClientFromYaml(yaml, meta.(KubeProvider))
 	if err != nil {
-		return fmt.Errorf("failed to create kubernetes rest client for resource: %+v", err)
+		return fmt.Errorf("failed to create kubernetes rest client for read of resource: %+v", err)
 	}
 
 	// Get the resource from Kubernetes
@@ -260,7 +350,7 @@ func resourceKubectlManifestDelete(d *schema.ResourceData, meta interface{}) err
 
 	client, rawObj, err := getRestClientFromYaml(yaml, meta.(KubeProvider))
 	if err != nil {
-		return fmt.Errorf("failed to create kubernetes rest client for resource: %+v", err)
+		return fmt.Errorf("failed to create kubernetes rest client for delete of resource: %+v", err)
 	}
 
 	metaObj := &meta_v1beta1.PartialObjectMetadata{}
@@ -280,7 +370,7 @@ func resourceKubectlManifestExists(d *schema.ResourceData, meta interface{}) (bo
 
 	client, rawObj, err := getRestClientFromYaml(yaml, meta.(KubeProvider))
 	if err != nil {
-		return false, fmt.Errorf("failed to create kubernetes rest client for resource: %+v", err)
+		return false, fmt.Errorf("failed to create kubernetes rest client for exists check of resource: %+v", err)
 	}
 
 	metaObj, err := client.Get(rawObj.GetName(), meta_v1.GetOptions{})
