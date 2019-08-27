@@ -112,10 +112,10 @@ Example:
 
 ```bash
 # Import the my-namespace-name namespace
-$ terraform import module.kubernetes.kubectl_manifest.namespace-example v1//Namespace//my-namespace-name
+$ terraform import -provider kubectl module.kubernetes.kubectl_manifest.namespace-example v1//Namespace//my-namespace-name
 
 # Import the certmanager Issuer CRD named cluster-selfsigned-issuer-root-ca from the my-namespace namespace
-$ terraform import module.kubernetes.kubectl_manifest.crd-example certmanager.k8s.io/v1alpha1//Issuer//cluster-selfsigned-issuer-root-ca//my-namespace
+$ terraform import -provider kubectl module.kubernetes.kubectl_manifest.crd-example certmanager.k8s.io/v1alpha1//Issuer//cluster-selfsigned-issuer-root-ca//my-namespace
 ```
 
 ### Load Kubernetes Manifests from file
