@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/hashicorp/terraform/helper/resource"
 	"log"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/icza/dyno"
 	yamlParser "gopkg.in/yaml.v2"
+	apps_v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	meta_v1_unstruct "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -19,6 +21,11 @@ import (
 
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+)
+
+const (
+	// https://github.com/kubernetes/kubernetes/blob/master/pkg/controller/deployment/util/deployment_util.go#L93
+	TimedOutReason = "ProgressDeadlineExceeded"
 )
 
 func resourceKubectlManifest() *schema.Resource {
@@ -275,6 +282,14 @@ func resourceKubectlManifestCreate(d *schema.ResourceData, meta interface{}) err
 	log.Printf("[COMPAREOUT] %+v\n", comparisonString)
 	d.Set("yaml_incluster", comparisonString)
 
+	if rawObj.GetKind() == "Deployment" {
+		err = resource.Retry(d.Timeout(schema.TimeoutCreate),
+			waitForDeploymentReplicasFunc(meta.(KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
+		if err != nil {
+			return err
+		}
+	}
+
 	return resourceKubectlManifestRead(d, meta)
 }
 
@@ -307,6 +322,14 @@ func resourceKubectlManifestUpdate(d *schema.ResourceData, meta interface{}) err
 
 	log.Printf("[COMPAREOUT] %+v\n", comparisonString)
 	d.Set("yaml_incluster", comparisonString)
+
+	if rawObj.GetKind() == "Deployment" {
+		err = resource.Retry(d.Timeout(schema.TimeoutCreate),
+			waitForDeploymentReplicasFunc(meta.(KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
+		if err != nil {
+			return err
+		}
+	}
 
 	return resourceKubectlManifestRead(d, meta)
 }
@@ -473,4 +496,52 @@ func checkAPIResourceIsPresent(available []*meta_v1.APIResourceList, resource me
 		}
 	}
 	return nil, false
+}
+
+// GetDeploymentConditionInternal returns the condition with the provided type.
+// Borrowed from: https://github.com/kubernetes/kubernetes/blob/master/pkg/controller/deployment/util/deployment_util.go#L135
+func GetDeploymentCondition(status apps_v1.DeploymentStatus, condType apps_v1.DeploymentConditionType) *apps_v1.DeploymentCondition {
+	for i := range status.Conditions {
+		c := status.Conditions[i]
+		if c.Type == condType {
+			return &c
+		}
+	}
+	return nil
+}
+
+func waitForDeploymentReplicasFunc(provider KubeProvider, ns, name string) resource.RetryFunc {
+	return func() *resource.RetryError {
+
+		clientSet, _ := provider()
+
+		// Query the deployment to get a status update.
+		dply, err := clientSet.AppsV1().Deployments(ns).Get(name, meta_v1.GetOptions{})
+		if err != nil {
+			return resource.NonRetryableError(err)
+		}
+
+		if dply.Generation <= dply.Status.ObservedGeneration {
+			cond := GetDeploymentCondition(dply.Status, apps_v1.DeploymentProgressing)
+			if cond != nil && cond.Reason == TimedOutReason {
+				err := fmt.Errorf("Deployment exceeded its progress deadline")
+				return resource.NonRetryableError(err)
+			}
+
+			if dply.Status.UpdatedReplicas < *dply.Spec.Replicas {
+				return resource.RetryableError(fmt.Errorf("Waiting for rollout to finish: %d out of %d new replicas have been updated...", dply.Status.UpdatedReplicas, dply.Spec.Replicas))
+			}
+
+			if dply.Status.Replicas > dply.Status.UpdatedReplicas {
+				return resource.RetryableError(fmt.Errorf("Waiting for rollout to finish: %d old replicas are pending termination...", dply.Status.Replicas-dply.Status.UpdatedReplicas))
+			}
+
+			if dply.Status.AvailableReplicas < dply.Status.UpdatedReplicas {
+				return resource.RetryableError(fmt.Errorf("Waiting for rollout to finish: %d of %d updated replicas are available...", dply.Status.AvailableReplicas, dply.Status.UpdatedReplicas))
+			}
+		} else if dply.Status.ObservedGeneration == 0 {
+			return resource.RetryableError(fmt.Errorf("Waiting for rollout to start"))
+		}
+		return nil
+	}
 }

@@ -100,6 +100,8 @@ YAML
 }
 ```
 
+> Note: When the kind is a Deployment, this provider will wait for the deployment to be rolled out automatically for you
+
 ### Import Kubernetes Resource
 
 This provider supports importing existing resources. The ID format expected uses a double `//` as a deliminator (as apiVersion can have a forward-slash):

@@ -12,6 +12,7 @@ require (
 	github.com/stretchr/testify v1.3.0
 	github.com/terraform-providers/terraform-provider-kubernetes v1.5.0
 	gopkg.in/yaml.v2 v2.2.2
+	k8s.io/api v0.0.0-20181221193117-173ce66c1e39
 	k8s.io/apimachinery v0.0.0-20190119020841-d41becfba9ee
 	k8s.io/client-go v10.0.0+incompatible
 	sigs.k8s.io/yaml v1.1.0
