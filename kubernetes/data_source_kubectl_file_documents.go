@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"github.com/hashicorp/terraform/helper/schema"
+	yamlParser "gopkg.in/yaml.v2"
 	"strings"
 )
 
@@ -35,6 +36,20 @@ func dataSourceKubectlFileDocumentsRead(d *schema.ResourceData, m interface{}) e
 	var documents []string
 	for scanner.Scan() {
 		document := strings.TrimSpace(scanner.Text())
+
+		// attempt to parse the document as yaml
+		rawYamlParsed := &map[string]interface{}{}
+		err := yamlParser.Unmarshal([]byte(document), rawYamlParsed)
+		if err != nil {
+			return fmt.Errorf("Error parsing yaml document: %v\n%v", err, document)
+		}
+
+		// skip empty yaml documents
+		if len(*rawYamlParsed) == 0 {
+			continue
+		}
+
+		// save to our collection of docs
 		documents = append(documents, document)
 	}
 

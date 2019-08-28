@@ -39,6 +39,34 @@ func TestAccKubectlDataSourceFileDocuments_basic(t *testing.T) {
 	})
 }
 
+func TestAccKubectlDataSourceFileDocuments_basicMultipleEmpty(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:  func() {},
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: `
+data "kubectl_file_documents" "test" {
+	content = <<YAML
+kind: Service1
+---
+# just a comment
+---
+kind: Service2
+---
+YAML
+}
+`,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.kubectl_file_documents.test", "documents.#", "2"),
+					resource.TestCheckResourceAttr("data.kubectl_file_documents.test", "documents.0", "kind: Service1"),
+					resource.TestCheckResourceAttr("data.kubectl_file_documents.test", "documents.1", "kind: Service2"),
+				),
+			},
+		},
+	})
+}
+
 func testAccKubernetesDataSourceFileDocumentsConfig_basic(docs int) string {
 	var content = ""
 	for i := 1; i <= docs; i++ {
