@@ -347,11 +347,11 @@ func resourceKubectlManifestRead(d *schema.ResourceData, meta interface{}) error
 	// Get the resource from Kubernetes
 	metaObjLive, err := client.Get(rawObj.GetName(), meta_v1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get resource '%s' from kubernetes: %+v", metaObjLive.GetSelfLink(), err)
+		return fmt.Errorf("failed to get resource '%v/%v' from kubernetes: %+v", rawObj.GetKind(), rawObj.GetName(), err)
 	}
 
 	if metaObjLive.GetUID() == "" {
-		return fmt.Errorf("Failed to parse item and get UUID: %+v", metaObjLive)
+		return fmt.Errorf("failed to parse item and get UUID: %+v", metaObjLive)
 	}
 
 	// Capture the UID and Resource_version from the cluster at the current time
@@ -396,10 +396,10 @@ func resourceKubectlManifestExists(d *schema.ResourceData, meta interface{}) (bo
 		return false, fmt.Errorf("failed to create kubernetes rest client for exists check of resource: %+v", err)
 	}
 
-	metaObj, err := client.Get(rawObj.GetName(), meta_v1.GetOptions{})
+	_, err = client.Get(rawObj.GetName(), meta_v1.GetOptions{})
 	exists := !errors.IsGone(err) || !errors.IsNotFound(err)
 	if err != nil && !exists {
-		return false, fmt.Errorf("failed to get resource '%s' from kubernetes: %+v", metaObj.GetSelfLink(), err)
+		return false, fmt.Errorf("failed to get resource '%v/%v' from kubernetes: %+v", rawObj.GetKind(), rawObj.GetName(), err)
 	}
 	if exists {
 		return true, nil
