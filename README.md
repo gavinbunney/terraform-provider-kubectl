@@ -122,7 +122,7 @@ $ terraform import -provider kubectl module.kubernetes.kubectl_manifest.crd-exam
 
 ### Load Kubernetes Manifests from file
 
-This provider also provides a `data` resource `kubectl_filename_list` to enable ease of working with directories of kubernetes manifests.
+This provider provides a `data` resource `kubectl_filename_list` to enable ease of working with directories of kubernetes manifests.
 
 ```hcl
 data "kubectl_filename_list" "manifests" {
@@ -132,6 +132,21 @@ data "kubectl_filename_list" "manifests" {
 resource "kubectl_manifest" "test" {
     count = length(data.kubectl_filename_list.manifests.matches)
     yaml_body = file(element(data.kubectl_filename_list.manifests.matches, count.index))
+}
+```
+
+### Split Multi-Document YAML Manifests
+
+This provider provides a `data` resource `kubectl_file_documents` to enable ease of splitting multi-document yaml content.
+
+```hcl
+data "kubectl_file_documents" "manifests" {
+    content = file("multi-doc-manifest.yaml")
+}
+
+resource "kubectl_manifest" "test" {
+    count = length(data.kubectl_file_documents.manifests.documents)
+    yaml_body = file(element(data.kubectl_file_documents.manifests.documents, count.index))
 }
 ```
 
