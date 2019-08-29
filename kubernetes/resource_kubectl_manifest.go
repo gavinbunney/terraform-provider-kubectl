@@ -172,20 +172,19 @@ metadata:
 			// If either UID or ResourceVersion differ between the current state and the cluster
 			// trigger an update on the resource to get back in sync
 			if UID != createdAtUID {
-				log.Printf("[CUSTOMDIFF] DETECTED %s vs %s", UID, createdAtUID)
+				log.Printf("[TRACE] DETECTED %s vs %s", UID, createdAtUID)
 				d.SetNewComputed("uid")
 				return nil
 			}
 
 			if resourceVersion != createdAtResourceVersion {
-				log.Printf("[CUSTOMDIFF] DETECTED RESOURCE VERSION %s vs %s", resourceVersion, createdAtResourceVersion)
+				log.Printf("[TRACE] DETECTED RESOURCE VERSION %s vs %s", resourceVersion, createdAtResourceVersion)
 				// Check that the fields specified in our YAML for diff against cluster representation
 				stateYaml := d.Get("yaml_incluster").(string)
 				liveStateYaml := d.Get("live_manifest_incluster").(string)
 				if stateYaml != liveStateYaml {
-					log.Printf("[CUSTOMDIFF] DETECTED YAML STATE %s vs %s", stateYaml, liveStateYaml)
+					log.Printf("[TRACE] DETECTED YAML STATE %s vs %s", stateYaml, liveStateYaml)
 					d.SetNewComputed("yaml_incluster")
-
 				}
 				return nil
 			}
@@ -304,6 +303,7 @@ func resourceKubectlManifestUpdate(d *schema.ResourceData, meta interface{}) err
 	}
 
 	// Update the resource in Kubernetes
+	rawObj.SetResourceVersion(d.Get("live_resource_version").(string))
 	response, err := client.Update(rawObj, meta_v1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update resource in kubernetes: %+v", err)
@@ -320,7 +320,7 @@ func resourceKubectlManifestUpdate(d *schema.ResourceData, meta interface{}) err
 		return err
 	}
 
-	log.Printf("[COMPAREOUT] %+v\n", comparisonString)
+	log.Printf("[DEBUG] kubectl manifest update %+v\n", comparisonString)
 	d.Set("yaml_incluster", comparisonString)
 
 	if rawObj.GetKind() == "Deployment" {

@@ -30,7 +30,7 @@ func compareMaps(original, returned map[string]interface{}) (string, error) {
 // value that field now holds in the returned item.
 // This is necessary as mutating admissions controllers may manipulate the values of items in the cluster
 // and these mutations should not be flagged as a change in TF. So we take the returned value from the cluster
-// and then build a list of field values for those set on the orignal object.
+// and then build a list of field values for those set on the original object.
 func getReturnedValueForOriginalFields(original, returned map[string]interface{}) ([]string, error) {
 	fields := []string{}
 	for oKeyTop, oValueTop := range original {
@@ -136,7 +136,7 @@ var skipFields = map[string]bool{
 func shouldSkip(fieldName string, original, returned interface{}) bool {
 	// Skip any fields we want to ignore
 	if _, exists := skipFields[fieldName]; exists {
-		log.Printf("[COMPARE] Skipping as in SkipFields: %#v %#v", original, returned)
+		log.Printf("[TRACE] Skipping as in SkipFields: %#v %#v", original, returned)
 		return true
 	}
 	return false
