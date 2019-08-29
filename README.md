@@ -150,6 +150,22 @@ resource "kubectl_manifest" "test" {
 }
 ```
 
+### Split Multi-Document YAML Manifests from Path
+
+This provider provides a `data` resource `kubectl_path_documents` to enable ease of splitting multi-document yaml content, from a collection of matching files.
+Think of is as a combination of both `kubectl_filename_list` and `kubectl_file_documents`
+
+```hcl
+data "kubectl_path_documents" "manifests" {
+    pattern = "./manifests/*.yaml"
+}
+
+resource "kubectl_manifest" "test" {
+    count = length(data.kubectl_path_documents.manifests.documents)
+    yaml_body = file(element(data.kubectl_path_documents.manifests.documents, count.index))
+}
+```
+
 ## Development Guide
 
 If you wish to work on the provider, you'll first need [Go](http://www.golang.org) installed on your machine (version 1.11+ is *required*).
