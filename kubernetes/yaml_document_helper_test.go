@@ -14,13 +14,13 @@ func TestYAMLDocumentHelper(t *testing.T) {
 		expectedDocs []string
 	}{
 		{
-			description: "Test single document",
-			yaml: buildTestData(1),
+			description:  "Test single document",
+			yaml:         buildTestData(1),
 			expectedDocs: []string{"kind: Service1"},
 		},
 		{
-			description: "Test multi document",
-			yaml: buildTestData(2),
+			description:  "Test multi document",
+			yaml:         buildTestData(2),
 			expectedDocs: []string{"kind: Service1", "kind: Service2"},
 		},
 		{
