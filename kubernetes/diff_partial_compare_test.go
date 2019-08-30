@@ -41,15 +41,15 @@ func TestPartialCompare(t *testing.T) {
 			// Ensure ignored fields are skipped
 			description: "Simple map with string value and ignored fields",
 			original: map[string]interface{}{
-				"test1":           "test2",
+				"test1":      "test2",
 				"ignoreThis": "1245",
 			},
 			returned: map[string]interface{}{
-				"test1":           "test2",
+				"test1":      "test2",
 				"ignoreThis": "1245",
 			},
 			expectedString: "fieldName:test1,fieldValue:test2",
-			ignored: []string{"ignoreThis"},
+			ignored:        []string{"ignoreThis"},
 		},
 		{
 			// Ensure nested `map[string]string` are supported
