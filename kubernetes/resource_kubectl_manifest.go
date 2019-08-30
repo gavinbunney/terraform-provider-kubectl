@@ -95,7 +95,13 @@ metadata:
 				d.Set("resource_version", metaObjLive.GetResourceVersion())
 				d.Set("live_resource_version", metaObjLive.GetResourceVersion())
 
-				comparisonOutput, err := compareMaps(metaObjLive.UnstructuredContent(), metaObjLive.UnstructuredContent())
+				var ignoreFields []string = nil
+				ignoreFieldsRaw, hasIgnoreFields := d.GetOk("ignore_fields")
+				if hasIgnoreFields {
+					ignoreFields = expandStringList(ignoreFieldsRaw.([]interface{}))
+				}
+
+				comparisonOutput, err := compareMaps(metaObjLive.UnstructuredContent(), metaObjLive.UnstructuredContent(), ignoreFields)
 				if err != nil {
 					return []*schema.ResourceData{}, err
 				}
@@ -246,6 +252,12 @@ metadata:
 				Optional:    true,
 				Default:     false,
 			},
+			"ignore_fields": {
+				Type:        schema.TypeList,
+				Elem:        &schema.Schema{Type: schema.TypeString},
+				Description: "List of yaml keys to ignore changes to. Set these for fields set by Operators or other processes in kubernetes and as such you don't want to update.",
+				Optional:    true,
+			},
 		},
 	}
 }
@@ -273,7 +285,13 @@ func resourceKubectlManifestCreate(d *schema.ResourceData, meta interface{}) err
 	// read in by the 'resourceKubectlManifestRead'
 	d.Set("uid", response.GetUID())
 	d.Set("resource_version", response.GetResourceVersion())
-	comparisonString, err := compareMaps(rawObj.UnstructuredContent(), response.UnstructuredContent())
+
+	var ignoreFields []string = nil
+	ignoreFieldsRaw, hasIgnoreFields := d.GetOk("ignore_fields")
+	if hasIgnoreFields {
+		ignoreFields = expandStringList(ignoreFieldsRaw.([]interface{}))
+	}
+	comparisonString, err := compareMaps(rawObj.UnstructuredContent(), response.UnstructuredContent(), ignoreFields)
 	if err != nil {
 		return err
 	}
@@ -321,7 +339,14 @@ func resourceKubectlManifestUpdate(d *schema.ResourceData, meta interface{}) err
 	// read in by the 'resourceKubectlManifestRead'
 	d.Set("uid", response.GetUID())
 	d.Set("resource_version", response.GetResourceVersion())
-	comparisonString, err := compareMaps(rawObj.UnstructuredContent(), response.UnstructuredContent())
+
+	var ignoreFields []string = nil
+	ignoreFieldsRaw, hasIgnoreFields := d.GetOk("ignore_fields")
+	if hasIgnoreFields {
+		ignoreFields = expandStringList(ignoreFieldsRaw.([]interface{}))
+	}
+	comparisonString, err := compareMaps(rawObj.UnstructuredContent(), response.UnstructuredContent(), ignoreFields)
+
 	if err != nil {
 		return err
 	}
@@ -370,7 +395,12 @@ func resourceKubectlManifestRead(d *schema.ResourceData, meta interface{}) error
 	d.Set("live_uid", metaObjLive.GetUID())
 	d.Set("live_resource_version", metaObjLive.GetResourceVersion())
 
-	comparisonOutput, err := compareMaps(rawObj.UnstructuredContent(), metaObjLive.UnstructuredContent())
+	var ignoreFields []string = nil
+	ignoreFieldsRaw, hasIgnoreFields := d.GetOk("ignore_fields")
+	if hasIgnoreFields {
+		ignoreFields = expandStringList(ignoreFieldsRaw.([]interface{}))
+	}
+	comparisonOutput, err := compareMaps(rawObj.UnstructuredContent(), metaObjLive.UnstructuredContent(), ignoreFields)
 	if err != nil {
 		return err
 	}
@@ -579,4 +609,17 @@ func waitForDaemonSetReplicasFunc(provider KubeProvider, ns, name string) resour
 		return resource.RetryableError(fmt.Errorf("Waiting for %d replicas of %q to be scheduled (%d)",
 			desiredReplicas, daemonSet.GetName(), daemonSet.Status.CurrentNumberScheduled))
 	}
+}
+
+// Takes the result of flatmap.Expand for an array of strings
+// and returns a []*string
+func expandStringList(configured []interface{}) []string {
+	vs := make([]string, 0, len(configured))
+	for _, v := range configured {
+		val, ok := v.(string)
+		if ok && val != "" {
+			vs = append(vs, val)
+		}
+	}
+	return vs
 }

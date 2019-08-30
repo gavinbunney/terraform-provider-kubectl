@@ -12,6 +12,7 @@ func TestPartialCompare(t *testing.T) {
 		expectedString string
 		original       map[string]interface{}
 		returned       map[string]interface{}
+		ignored        []string
 	}{
 		{
 			description: "Simple map with string value",
@@ -35,6 +36,20 @@ func TestPartialCompare(t *testing.T) {
 				"resourceVersion": "1245",
 			},
 			expectedString: "fieldName:test1,fieldValue:test2",
+		},
+		{
+			// Ensure ignored fields are skipped
+			description: "Simple map with string value and ignored fields",
+			original: map[string]interface{}{
+				"test1":           "test2",
+				"ignoreThis": "1245",
+			},
+			returned: map[string]interface{}{
+				"test1":           "test2",
+				"ignoreThis": "1245",
+			},
+			expectedString: "fieldName:test1,fieldValue:test2",
+			ignored: []string{"ignoreThis"},
 		},
 		{
 			// Ensure nested `map[string]string` are supported
@@ -250,7 +265,7 @@ func TestPartialCompare(t *testing.T) {
 
 	for _, tcase := range testCases {
 		t.Run(tcase.description, func(t *testing.T) {
-			result, err := compareMaps(tcase.original, tcase.returned)
+			result, err := compareMaps(tcase.original, tcase.returned, tcase.ignored)
 			assert.NoError(t, err, "Expect compareMaps to succeed")
 
 			assert.Equal(t, tcase.expectedString, result, "Expect the builder output to match")

@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-func compareMaps(original, returned map[string]interface{}) (string, error) {
-	fields, err := getReturnedValueForOriginalFields(original, returned)
+func compareMaps(original, returned map[string]interface{}, ignoreFields []string) (string, error) {
+	fields, err := getReturnedValueForOriginalFields(original, returned, ignoreFields)
 	if err != nil {
 		return "", err
 	}
@@ -31,7 +31,7 @@ func compareMaps(original, returned map[string]interface{}) (string, error) {
 // This is necessary as mutating admissions controllers may manipulate the values of items in the cluster
 // and these mutations should not be flagged as a change in TF. So we take the returned value from the cluster
 // and then build a list of field values for those set on the original object.
-func getReturnedValueForOriginalFields(original, returned map[string]interface{}) ([]string, error) {
+func getReturnedValueForOriginalFields(original, returned map[string]interface{}, ignoreFields []string) ([]string, error) {
 	fields := []string{}
 	for oKeyTop, oValueTop := range original {
 		for rKeyTop, rValueTop := range returned {
@@ -40,13 +40,28 @@ func getReturnedValueForOriginalFields(original, returned map[string]interface{}
 				continue
 			}
 
+			if ignoreFields != nil {
+				var shouldIgnore = false
+				for _, fieldToIgnore := range ignoreFields {
+					if fieldToIgnore == oKeyTop {
+						log.Printf("[TRACE] Skipping as in ignoreFields [%v]: %#v %#v", oKeyTop, original, returned)
+						shouldIgnore = true
+						break
+					}
+				}
+
+				if shouldIgnore {
+					continue
+				}
+			}
+
 			// Skip if it's an ignored field
 			if shouldSkip(oKeyTop, oValueTop, rValueTop) {
 				continue
 			}
 
 			// If we're looking at a nested map then recurse into it
-			fieldsFound, foundMaps, err := handleMaps(oValueTop, rValueTop)
+			fieldsFound, foundMaps, err := handleMaps(oValueTop, rValueTop, ignoreFields)
 			if err != nil {
 				return []string{}, err
 			}
@@ -62,7 +77,7 @@ func getReturnedValueForOriginalFields(original, returned map[string]interface{}
 				for i, _ := range arrayReturned {
 
 					// Again if we're looking at a nested map then recurse into it
-					fieldsFound, foundMaps, err := handleMaps(oValueTop.([]interface{})[i], arrayReturned[i])
+					fieldsFound, foundMaps, err := handleMaps(oValueTop.([]interface{})[i], arrayReturned[i], ignoreFields)
 					if err != nil {
 						return []string{}, err
 					}
@@ -86,12 +101,12 @@ func getReturnedValueForOriginalFields(original, returned map[string]interface{}
 	return fields, nil
 }
 
-func handleMaps(oValue, rValue interface{}) ([]string, bool, error) {
+func handleMaps(oValue, rValue interface{}, ignoreFields []string) ([]string, bool, error) {
 	fields := []string{}
 
 	// If we're looking at a nested map then recurse into it
 	if _, ok := oValue.(map[string]interface{}); ok {
-		newFields, err := getReturnedValueForOriginalFields(oValue.(map[string]interface{}), rValue.(map[string]interface{}))
+		newFields, err := getReturnedValueForOriginalFields(oValue.(map[string]interface{}), rValue.(map[string]interface{}), ignoreFields)
 		if err != nil {
 			return []string{}, false, err
 		}
@@ -102,7 +117,7 @@ func handleMaps(oValue, rValue interface{}) ([]string, bool, error) {
 	// If it's a map[string]string convert then recurse
 	if _, ok := oValue.(map[string]string); ok {
 
-		newFields, err := getReturnedValueForOriginalFields(convertToMapStringInterface(oValue), convertToMapStringInterface(rValue))
+		newFields, err := getReturnedValueForOriginalFields(convertToMapStringInterface(oValue), convertToMapStringInterface(rValue), ignoreFields)
 		if err != nil {
 			return []string{}, false, err
 		}
