@@ -40,7 +40,7 @@ func getReturnedValueForOriginalFields(original, returned map[string]interface{}
 				continue
 			}
 
-			if ignoreFields != nil {
+			if len(ignoreFields) > 0 {
 				var shouldIgnore = false
 				for _, fieldToIgnore := range ignoreFields {
 					if fieldToIgnore == oKeyTop {
