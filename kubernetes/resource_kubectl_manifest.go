@@ -149,6 +149,11 @@ metadata:
 				d.ForceNew("yaml_body")
 			}
 
+			if !d.NewValueKnown("yaml_body") {
+				log.Printf("[TRACE] yaml_body value interpolated, skipping customized diff")
+				return nil
+			}
+
 			parsedYaml, err := parseYaml(d.Get("yaml_body").(string))
 			if err != nil {
 				return err
