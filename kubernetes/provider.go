@@ -14,6 +14,7 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	aggregator "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 )
 
 func Provider() terraform.ResourceProvider {
@@ -122,8 +123,11 @@ func Provider() terraform.ResourceProvider {
 	}
 }
 
-// KubeProvider func to return client and config to work with K8s API
-type KubeProvider func() (*kubernetes.Clientset, restclient.Config)
+type KubeProvider struct {
+	MainClientset       *kubernetes.Clientset
+	RestConfig          restclient.Config
+	AggregatorClientset *aggregator.Clientset
+}
 
 var kubectlCreateRetryCount uint64
 
@@ -178,14 +182,14 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 		return nil, fmt.Errorf("Failed to configure: %s", err)
 	}
 
-	var meta KubeProvider
-	meta = func() (*kubernetes.Clientset, restclient.Config) {
-		// Defref config to create a shallow copy, allowing each func
-		// to manipulate the state without affecting another func
-		return k, *cfg
+	a, err := aggregator.NewForConfig(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to configure: %s", err)
 	}
 
-	return meta, nil
+	// dereference config to create a shallow copy, allowing each func
+	// to manipulate the state without affecting another func
+	return &KubeProvider{k, *cfg, a}, nil
 }
 
 func tryLoadingConfigFile(d *schema.ResourceData) (*restclient.Config, error) {

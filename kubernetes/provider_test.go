@@ -36,14 +36,14 @@ func testAccCheckkubectlExists(s *terraform.State) error {
 }
 
 func testAccCheckkubectlStatus(s *terraform.State, shouldExist bool) error {
-	conn, _ := testAccProvider.Meta().(KubeProvider)()
+	provider := testAccProvider.Meta().(KubeProvider)
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "kubectl_manifest" {
 			continue
 		}
 
-		content, err := conn.RESTClient().Get().AbsPath(rs.Primary.ID).DoRaw()
+		content, err := provider.MainClientset.RESTClient().Get().AbsPath(rs.Primary.ID).DoRaw()
 		if (errors.IsNotFound(err) || errors.IsGone(err)) && shouldExist {
 			return fmt.Errorf("Failed to find resource, likely a failure to create occured: %+v %v", err, string(content))
 		}

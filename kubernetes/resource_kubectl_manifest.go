@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/hashicorp/terraform/helper/resource"
+	apiregistration "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
+	apiregistration_helper "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1/helper"
 	"log"
 	"strings"
 
@@ -72,7 +74,7 @@ metadata:
 `, apiVersion, kind, name)
 				}
 
-				client, rawObj, err := getRestClientFromYaml(yaml, meta.(KubeProvider))
+				client, rawObj, err := getRestClientFromYaml(yaml, meta.(*KubeProvider))
 
 				if err != nil {
 					return []*schema.ResourceData{}, fmt.Errorf("failed to create kubernetes rest client for import of resource: %s %s %s %+v %s %s", apiVersion, kind, name, err, yaml, rawObj)
@@ -272,7 +274,7 @@ func resourceKubectlManifestCreate(d *schema.ResourceData, meta interface{}) err
 
 	// Create a client to talk to the resource API based on the APIVersion and Kind
 	// defined in the YAML
-	client, rawObj, err := getRestClientFromYaml(yaml, meta.(KubeProvider))
+	client, rawObj, err := getRestClientFromYaml(yaml, meta.(*KubeProvider))
 	if err != nil {
 		return fmt.Errorf("failed to create kubernetes rest client for create of resource: %+v", err)
 	}
@@ -306,13 +308,19 @@ func resourceKubectlManifestCreate(d *schema.ResourceData, meta interface{}) err
 
 	if rawObj.GetKind() == "Deployment" {
 		err = resource.Retry(d.Timeout(schema.TimeoutCreate),
-			waitForDeploymentReplicasFunc(meta.(KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
+			waitForDeploymentReplicasFunc(meta.(*KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
 		if err != nil {
 			return err
 		}
 	} else if rawObj.GetKind() == "DaemonSet" {
 		err = resource.Retry(d.Timeout(schema.TimeoutCreate),
-			waitForDaemonSetReplicasFunc(meta.(KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
+			waitForDaemonSetReplicasFunc(meta.(*KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
+		if err != nil {
+			return err
+		}
+	} else if rawObj.GetKind() == "APIService" && rawObj.GetAPIVersion() == "apiregistration.k8s.io/v1" {
+		err = resource.Retry(d.Timeout(schema.TimeoutCreate),
+			waitForAPIServiceAvailableFunc(meta.(*KubeProvider), rawObj.GetName()))
 		if err != nil {
 			return err
 		}
@@ -326,7 +334,7 @@ func resourceKubectlManifestUpdate(d *schema.ResourceData, meta interface{}) err
 
 	// Create a client to talk to the resource API based on the APIVersion and Kind
 	// defined in the YAML
-	client, rawObj, err := getRestClientFromYaml(yaml, meta.(KubeProvider))
+	client, rawObj, err := getRestClientFromYaml(yaml, meta.(*KubeProvider))
 	if err != nil {
 		return fmt.Errorf("failed to create kubernetes rest client for update of resource: %+v", err)
 	}
@@ -361,13 +369,19 @@ func resourceKubectlManifestUpdate(d *schema.ResourceData, meta interface{}) err
 
 	if rawObj.GetKind() == "Deployment" {
 		err = resource.Retry(d.Timeout(schema.TimeoutCreate),
-			waitForDeploymentReplicasFunc(meta.(KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
+			waitForDeploymentReplicasFunc(meta.(*KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
 		if err != nil {
 			return err
 		}
 	} else if rawObj.GetKind() == "DaemonSet" {
 		err = resource.Retry(d.Timeout(schema.TimeoutCreate),
-			waitForDaemonSetReplicasFunc(meta.(KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
+			waitForDaemonSetReplicasFunc(meta.(*KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
+		if err != nil {
+			return err
+		}
+	} else if rawObj.GetKind() == "APIService" && rawObj.GetAPIVersion() == "apiregistration.k8s.io/v1" {
+		err = resource.Retry(d.Timeout(schema.TimeoutCreate),
+			waitForAPIServiceAvailableFunc(meta.(*KubeProvider), rawObj.GetName()))
 		if err != nil {
 			return err
 		}
@@ -381,7 +395,7 @@ func resourceKubectlManifestRead(d *schema.ResourceData, meta interface{}) error
 
 	// Create a client to talk to the resource API based on the APIVersion and Kind
 	// defined in the YAML
-	client, rawObj, err := getRestClientFromYaml(yaml, meta.(KubeProvider))
+	client, rawObj, err := getRestClientFromYaml(yaml, meta.(*KubeProvider))
 	if err != nil {
 		return fmt.Errorf("failed to create kubernetes rest client for read of resource: %+v", err)
 	}
@@ -418,7 +432,7 @@ func resourceKubectlManifestRead(d *schema.ResourceData, meta interface{}) error
 func resourceKubectlManifestDelete(d *schema.ResourceData, meta interface{}) error {
 	yaml := d.Get("yaml_body").(string)
 
-	client, rawObj, err := getRestClientFromYaml(yaml, meta.(KubeProvider))
+	client, rawObj, err := getRestClientFromYaml(yaml, meta.(*KubeProvider))
 	if err != nil {
 		return fmt.Errorf("failed to create kubernetes rest client for delete of resource: %+v", err)
 	}
@@ -438,7 +452,7 @@ func resourceKubectlManifestDelete(d *schema.ResourceData, meta interface{}) err
 func resourceKubectlManifestExists(d *schema.ResourceData, meta interface{}) (bool, error) {
 	yaml := d.Get("yaml_body").(string)
 
-	client, rawObj, err := getRestClientFromYaml(yaml, meta.(KubeProvider))
+	client, rawObj, err := getRestClientFromYaml(yaml, meta.(*KubeProvider))
 	if err != nil {
 		return false, fmt.Errorf("failed to create kubernetes rest client for exists check of resource: %+v", err)
 	}
@@ -482,15 +496,14 @@ func parseYaml(yaml string) (*meta_v1_unstruct.Unstructured, error) {
 	return &unstrut, nil
 }
 
-func getRestClientFromYaml(yaml string, provider KubeProvider) (dynamic.ResourceInterface, *meta_v1_unstruct.Unstructured, error) {
+func getRestClientFromYaml(yaml string, provider *KubeProvider) (dynamic.ResourceInterface, *meta_v1_unstruct.Unstructured, error) {
 	unstrut, err := parseYaml(yaml)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// Use the k8s Discovery service to find all valid APIs for this cluster
-	clientSet, config := provider()
-	discoveryClient := clientSet.Discovery()
+	discoveryClient := provider.MainClientset.Discovery()
 	resources, err := discoveryClient.ServerResources()
 	// There is a partial failure mode here where not all groups are returned `GroupDiscoveryFailedError`
 	// we'll try and continue in this condition as it's likely something we don't need
@@ -512,7 +525,7 @@ func getRestClientFromYaml(yaml string, provider KubeProvider) (dynamic.Resource
 		resource.Group = ""
 		resource.Version = "v1"
 	}
-	client := dynamic.NewForConfigOrDie(&config).Resource(resource)
+	client := dynamic.NewForConfigOrDie(&provider.RestConfig).Resource(resource)
 
 	if apiResource.Namespaced {
 		namespace := unstrut.GetNamespace()
@@ -557,13 +570,11 @@ func GetDeploymentCondition(status apps_v1.DeploymentStatus, condType apps_v1.De
 	return nil
 }
 
-func waitForDeploymentReplicasFunc(provider KubeProvider, ns, name string) resource.RetryFunc {
+func waitForDeploymentReplicasFunc(provider *KubeProvider, ns, name string) resource.RetryFunc {
 	return func() *resource.RetryError {
 
-		clientSet, _ := provider()
-
 		// Query the deployment to get a status update.
-		dply, err := clientSet.AppsV1().Deployments(ns).Get(name, meta_v1.GetOptions{})
+		dply, err := provider.MainClientset.AppsV1().Deployments(ns).Get(name, meta_v1.GetOptions{})
 		if err != nil {
 			return resource.NonRetryableError(err)
 		}
@@ -593,12 +604,10 @@ func waitForDeploymentReplicasFunc(provider KubeProvider, ns, name string) resou
 	}
 }
 
-func waitForDaemonSetReplicasFunc(provider KubeProvider, ns, name string) resource.RetryFunc {
+func waitForDaemonSetReplicasFunc(provider *KubeProvider, ns, name string) resource.RetryFunc {
 	return func() *resource.RetryError {
 
-		clientSet, _ := provider()
-
-		daemonSet, err := clientSet.AppsV1().DaemonSets(ns).Get(name, meta_v1.GetOptions{})
+		daemonSet, err := provider.MainClientset.AppsV1().DaemonSets(ns).Get(name, meta_v1.GetOptions{})
 		if err != nil {
 			return resource.NonRetryableError(err)
 		}
@@ -613,6 +622,22 @@ func waitForDaemonSetReplicasFunc(provider KubeProvider, ns, name string) resour
 
 		return resource.RetryableError(fmt.Errorf("Waiting for %d replicas of %q to be scheduled (%d)",
 			desiredReplicas, daemonSet.GetName(), daemonSet.Status.CurrentNumberScheduled))
+	}
+}
+
+func waitForAPIServiceAvailableFunc(provider *KubeProvider, name string) resource.RetryFunc {
+	return func() *resource.RetryError {
+
+		apiService, err := provider.AggregatorClientset.ApiregistrationV1().APIServices().Get(name, meta_v1.GetOptions{})
+		if err != nil {
+			return resource.NonRetryableError(err)
+		}
+
+		if apiregistration_helper.IsAPIServiceConditionTrue(apiService, apiregistration.Available) {
+			return nil
+		}
+
+		return resource.RetryableError(fmt.Errorf("Waiting for APIService %v to be Available", name))
 	}
 }
 
