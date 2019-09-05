@@ -83,7 +83,7 @@ metadata:
 				// Get the resource from Kubernetes
 				metaObjLive, err := client.Get(rawObj.GetName(), meta_v1.GetOptions{})
 				if err != nil {
-					return []*schema.ResourceData{}, fmt.Errorf("failed to get resource '%s' from kubernetes: %+v", metaObjLive.GetSelfLink(), err)
+					return []*schema.ResourceData{}, fmt.Errorf("failed to get resource %s %s %s from kubernetes: %+v", apiVersion, kind, name, err)
 				}
 
 				if metaObjLive.GetUID() == "" {
@@ -504,7 +504,7 @@ func getRestClientFromYaml(yaml string, provider *KubeProvider) (dynamic.Resourc
 
 	// Use the k8s Discovery service to find all valid APIs for this cluster
 	discoveryClient := provider.MainClientset.Discovery()
-	resources, err := discoveryClient.ServerResources()
+	_, resources, err := discoveryClient.ServerGroupsAndResources()
 	// There is a partial failure mode here where not all groups are returned `GroupDiscoveryFailedError`
 	// we'll try and continue in this condition as it's likely something we don't need
 	// and if it is the `checkAPIResourceIsPresent` check will fail and stop the process
@@ -520,7 +520,7 @@ func getRestClientFromYaml(yaml string, provider *KubeProvider) (dynamic.Resourc
 
 	resource := k8sschema.GroupVersionResource{Group: apiResource.Group, Version: apiResource.Version, Resource: apiResource.Name}
 	// For core services (ServiceAccount, Service etc) the group is incorrectly parsed.
-	// "v1" should be empty group and "v1" for verion
+	// "v1" should be empty group and "v1" for version
 	if resource.Group == "v1" && resource.Version == "" {
 		resource.Group = ""
 		resource.Version = "v1"
