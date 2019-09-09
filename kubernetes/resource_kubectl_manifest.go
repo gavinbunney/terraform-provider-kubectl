@@ -513,11 +513,10 @@ func getRestClientFromYaml(yaml string, provider *KubeProvider) (dynamic.Resourc
 	client := dynamic.NewForConfigOrDie(&provider.RestConfig).Resource(resourceStruct)
 
 	if apiResource.Namespaced {
-		namespace := unstrut.GetNamespace()
-		if namespace == "" {
-			namespace = "default"
+		if unstrut.GetNamespace() == "" {
+			unstrut.SetNamespace("default")
 		}
-		return client.Namespace(namespace), unstrut, nil
+		return client.Namespace(unstrut.GetNamespace()), unstrut, nil
 	}
 
 	return client, unstrut, nil
