@@ -4,14 +4,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/hashicorp/terraform/helper/resource"
+	"io/ioutil"
+	"k8s.io/cli-runtime/pkg/printers"
+	"os"
+
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	k8sresource "k8s.io/cli-runtime/pkg/resource"
 	apiregistration "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
-	apiregistration_helper "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1/helper"
+	"k8s.io/kubectl/pkg/cmd/apply"
+	k8sdelete "k8s.io/kubectl/pkg/cmd/delete"
 	"log"
 	"strings"
 
 	"github.com/cenkalti/backoff"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/icza/dyno"
+
 	yamlParser "gopkg.in/yaml.v2"
 	apps_v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -34,7 +42,7 @@ func resourceKubectlManifest() *schema.Resource {
 	return &schema.Resource{
 		Create: func(d *schema.ResourceData, meta interface{}) error {
 			return backoff.Retry(func() error {
-				err := resourceKubectlManifestCreate(d, meta)
+				err := resourceKubectlManifestApply(d, meta)
 				if err != nil {
 					return err
 				}
@@ -44,7 +52,15 @@ func resourceKubectlManifest() *schema.Resource {
 		Read:   resourceKubectlManifestRead,
 		Exists: resourceKubectlManifestExists,
 		Delete: resourceKubectlManifestDelete,
-		Update: resourceKubectlManifestUpdate,
+		Update: func(d *schema.ResourceData, meta interface{}) error {
+			return backoff.Retry(func() error {
+				err := resourceKubectlManifestApply(d, meta)
+				if err != nil {
+					return err
+				}
+				return err
+			}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), kubectlApplyRetryCount))
+		},
 		Importer: &schema.ResourceImporter{
 			State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 				idParts := strings.Split(d.Id(), "//")
@@ -112,6 +128,7 @@ metadata:
 				d.Set("live_manifest_incluster", comparisonOutput)
 
 				// set fields captured normally during creation/updates
+				d.SetId(metaObjLive.GetSelfLink())
 				d.Set("api_version", metaObjLive.GetAPIVersion())
 				d.Set("kind", metaObjLive.GetKind())
 				d.Set("namespace", metaObjLive.GetNamespace())
@@ -269,67 +286,7 @@ metadata:
 	}
 }
 
-func resourceKubectlManifestCreate(d *schema.ResourceData, meta interface{}) error {
-	yaml := d.Get("yaml_body").(string)
-
-	// Create a client to talk to the resource API based on the APIVersion and Kind
-	// defined in the YAML
-	client, rawObj, err := getRestClientFromYaml(yaml, meta.(*KubeProvider))
-	if err != nil {
-		return fmt.Errorf("failed to create kubernetes rest client for create of resource: %+v", err)
-	}
-
-	// Create the resource in Kubernetes
-	response, err := client.Create(rawObj, meta_v1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to create resource in kubernetes: %+v", err)
-	}
-
-	d.SetId(response.GetSelfLink())
-
-	// Capture the UID and Resource_version at time of creation
-	// this allows us to diff these against the actual values
-	// read in by the 'resourceKubectlManifestRead'
-	d.Set("uid", response.GetUID())
-	d.Set("resource_version", response.GetResourceVersion())
-
-	var ignoreFields []string = nil
-	ignoreFieldsRaw, hasIgnoreFields := d.GetOk("ignore_fields")
-	if hasIgnoreFields {
-		ignoreFields = expandStringList(ignoreFieldsRaw.([]interface{}))
-	}
-	comparisonString, err := compareMaps(rawObj.UnstructuredContent(), response.UnstructuredContent(), ignoreFields)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("[COMPAREOUT] %+v\n", comparisonString)
-	d.Set("yaml_incluster", comparisonString)
-
-	if rawObj.GetKind() == "Deployment" {
-		err = resource.Retry(d.Timeout(schema.TimeoutCreate),
-			waitForDeploymentReplicasFunc(meta.(*KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
-		if err != nil {
-			return err
-		}
-	} else if rawObj.GetKind() == "DaemonSet" {
-		err = resource.Retry(d.Timeout(schema.TimeoutCreate),
-			waitForDaemonSetReplicasFunc(meta.(*KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
-		if err != nil {
-			return err
-		}
-	} else if rawObj.GetKind() == "APIService" && rawObj.GetAPIVersion() == "apiregistration.k8s.io/v1" {
-		err = resource.Retry(d.Timeout(schema.TimeoutCreate),
-			waitForAPIServiceAvailableFunc(meta.(*KubeProvider), rawObj.GetName()))
-		if err != nil {
-			return err
-		}
-	}
-
-	return resourceKubectlManifestRead(d, meta)
-}
-
-func resourceKubectlManifestUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceKubectlManifestApply(d *schema.ResourceData, meta interface{}) error {
 	yaml := d.Get("yaml_body").(string)
 
 	// Create a client to talk to the resource API based on the APIVersion and Kind
@@ -339,11 +296,35 @@ func resourceKubectlManifestUpdate(d *schema.ResourceData, meta interface{}) err
 		return fmt.Errorf("failed to create kubernetes rest client for update of resource: %+v", err)
 	}
 
-	// Update the resource in Kubernetes
-	rawObj.SetResourceVersion(d.Get("live_resource_version").(string))
-	response, err := client.Update(rawObj, meta_v1.UpdateOptions{})
+	// Update the resource in Kubernetes, using a temp file
+	tmpfile, _ := ioutil.TempFile("", "*kubectl_manifest.yaml")
+	_, _ = tmpfile.Write([]byte(yaml))
+	_ = tmpfile.Close()
+
+	applyOptions := apply.NewApplyOptions(genericclioptions.IOStreams{
+		In: strings.NewReader(yaml),
+	})
+	applyOptions.Builder = k8sresource.NewBuilder(k8sresource.RESTClientGetter(meta.(*KubeProvider)))
+	applyOptions.DeleteOptions = &k8sdelete.DeleteOptions{
+		FilenameOptions: k8sresource.FilenameOptions{
+			Filenames: []string{tmpfile.Name()},
+		},
+	}
+
+	applyOptions.ToPrinter = func(string) (printers.ResourcePrinter, error) {
+		return printers.NewDiscardingPrinter(), nil
+	}
+
+	err = applyOptions.Run()
+	_ = os.Remove(tmpfile.Name())
 	if err != nil {
-		return fmt.Errorf("failed to update resource in kubernetes: %+v", err)
+		return fmt.Errorf("failed to run apply options '%v/%v': %+v", rawObj.GetKind(), rawObj.GetName(), err)
+	}
+
+	// Get the resource from Kubernetes
+	response, err := client.Get(rawObj.GetName(), meta_v1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get resource '%v/%v' from kubernetes: %+v", rawObj.GetKind(), rawObj.GetName(), err)
 	}
 
 	d.SetId(response.GetSelfLink())
@@ -518,14 +499,14 @@ func getRestClientFromYaml(yaml string, provider *KubeProvider) (dynamic.Resourc
 		return nil, nil, fmt.Errorf("resource provided in yaml isn't valid for cluster, check the APIVersion and Kind fields are valid")
 	}
 
-	resource := k8sschema.GroupVersionResource{Group: apiResource.Group, Version: apiResource.Version, Resource: apiResource.Name}
+	resourceStruct := k8sschema.GroupVersionResource{Group: apiResource.Group, Version: apiResource.Version, Resource: apiResource.Name}
 	// For core services (ServiceAccount, Service etc) the group is incorrectly parsed.
 	// "v1" should be empty group and "v1" for version
-	if resource.Group == "v1" && resource.Version == "" {
-		resource.Group = ""
-		resource.Version = "v1"
+	if resourceStruct.Group == "v1" && resourceStruct.Version == "" {
+		resourceStruct.Group = ""
+		resourceStruct.Version = "v1"
 	}
-	client := dynamic.NewForConfigOrDie(&provider.RestConfig).Resource(resource)
+	client := dynamic.NewForConfigOrDie(&provider.RestConfig).Resource(resourceStruct)
 
 	if apiResource.Namespaced {
 		namespace := unstrut.GetNamespace()
@@ -633,8 +614,10 @@ func waitForAPIServiceAvailableFunc(provider *KubeProvider, name string) resourc
 			return resource.NonRetryableError(err)
 		}
 
-		if apiregistration_helper.IsAPIServiceConditionTrue(apiService, apiregistration.Available) {
-			return nil
+		for i := range apiService.Status.Conditions {
+			if apiService.Status.Conditions[i].Type == apiregistration.Available {
+				return nil
+			}
 		}
 
 		return resource.RetryableError(fmt.Errorf("Waiting for APIService %v to be Available", name))

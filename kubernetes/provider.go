@@ -3,12 +3,17 @@ package kubernetes
 import (
 	"bytes"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/restmapper"
 	"log"
 	"os"
 
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
 	"github.com/mitchellh/go-homedir"
+	k8sresource "k8s.io/cli-runtime/pkg/resource"
 	kubernetes "k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	restclient "k8s.io/client-go/rest"
@@ -127,6 +132,31 @@ type KubeProvider struct {
 	MainClientset       *kubernetes.Clientset
 	RestConfig          restclient.Config
 	AggregatorClientset *aggregator.Clientset
+}
+
+var _ k8sresource.RESTClientGetter = &KubeProvider{}
+
+func (p *KubeProvider) ToRawKubeConfigLoader() clientcmd.ClientConfig {
+	return nil
+}
+
+func (p *KubeProvider) ToRESTConfig() (*restclient.Config, error) {
+	return &p.RestConfig, nil
+}
+
+func (p *KubeProvider) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
+	return memory.NewMemCacheClient(p.MainClientset.Discovery()), nil
+}
+
+func (p *KubeProvider) ToRESTMapper() (meta.RESTMapper, error) {
+	discoveryClient, _ := p.ToDiscoveryClient()
+	if discoveryClient != nil {
+		mapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
+		expander := restmapper.NewShortcutExpander(mapper, discoveryClient)
+		return expander, nil
+	}
+
+	return nil, fmt.Errorf("no restmapper")
 }
 
 var kubectlApplyRetryCount uint64

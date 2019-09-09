@@ -76,20 +76,31 @@ func getReturnedValueForOriginalFields(original, returned map[string]interface{}
 			if arrayReturned, ok := rValueTop.([]interface{}); ok {
 				for i, _ := range arrayReturned {
 
-					// Again if we're looking at a nested map then recurse into it
-					fieldsFound, foundMaps, err := handleMaps(oValueTop.([]interface{})[i], arrayReturned[i], ignoreFields)
-					if err != nil {
-						return []string{}, err
-					}
-					if foundMaps {
-						// this one was a map and we've handled it.
-						fields = append(fields, fieldsFound...)
-						continue
-					}
+					// check if we are outside bounds when array is added on either side that's not in the other
+					oValueArray := oValueTop.([]interface{})
+					if len(oValueArray)-1 < i || len(arrayReturned)-1 < i {
+						if len(arrayReturned) > i {
+							fields = append(fields, fmt.Sprintf("fieldName:%s,fieldValue:%+v", fmt.Sprintf("%v[%v]", oKeyTop, i), arrayReturned[i]))
+						} else {
+							fields = append(fields, fmt.Sprintf("fieldName:%s,fieldValue:%+v", fmt.Sprintf("%v[%v]", oKeyTop, i), ""))
+						}
+					} else {
+						// Again if we're looking at a nested map then recurse into it
+						fieldsFound, foundMaps, err := handleMaps(oValueArray[i], arrayReturned[i], ignoreFields)
+						if err != nil {
+							return []string{}, err
+						}
+						if foundMaps {
+							// this one was a map and we've handled it.
+							fields = append(fields, fieldsFound...)
+							continue
+						}
 
-					// Otherwise it's probably something else so can be printed
-					fields = append(fields, fmt.Sprintf("fieldName:%s,fieldValue:%+v", fmt.Sprintf("%v[%v]", oKeyTop, i), arrayReturned[i]))
+						// Otherwise it's probably something else so can be printed
+						fields = append(fields, fmt.Sprintf("fieldName:%s,fieldValue:%+v", fmt.Sprintf("%v[%v]", oKeyTop, i), arrayReturned[i]))
+					}
 				}
+
 				continue
 			}
 
