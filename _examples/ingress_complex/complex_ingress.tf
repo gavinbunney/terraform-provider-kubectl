@@ -1,13 +1,4 @@
-resource "kubernetes_secret" "gitlfs_tls" {
-  metadata {
-    name = "name-here"
-  }
-
-  data = {
-    tls_crt = "somedata"
-    tls_key = "moredata"
-  }
-}
+provider "kubectl" {}
 
 resource "kubectl_manifest" "test" {
   yaml_body = <<YAML
