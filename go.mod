@@ -3,12 +3,10 @@ module github.com/gavinbunney/terraform-provider-kubectl
 go 1.12
 
 require (
-	github.com/Azure/go-autorest v13.0.0+incompatible
 	github.com/cenkalti/backoff v2.1.1+incompatible
 	github.com/google/btree v1.0.0 // indirect
 	github.com/hashicorp/terraform v0.12.5
 	github.com/icza/dyno v0.0.0-20180601094105-0c96289f9585
-	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/stretchr/testify v1.3.0
 	gopkg.in/yaml.v2 v2.2.2
@@ -20,3 +18,5 @@ require (
 	k8s.io/kubectl v0.0.0-20190831163037-3b58a944563f
 	sigs.k8s.io/yaml v1.1.0
 )
+
+replace github.com/Azure/go-autorest v10.15.4+incompatible => github.com/Azure/go-autorest v13.0.0+incompatible
