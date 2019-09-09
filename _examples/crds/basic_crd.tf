@@ -1,5 +1,5 @@
 provider "kubectl" {
-  create_retry_count = 15
+  apply_retry_count = 15
 }
 
 

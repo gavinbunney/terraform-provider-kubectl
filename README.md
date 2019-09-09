@@ -65,12 +65,13 @@ provider "kubectl" {
 }
 ```
 
-The provider has an additional paramater `create_retry_count` that allows kubernetes commands to be retried on failure.
-This is useful if you have flaky CRDs or network connections and need to wait for the cluster state to be back in quorum. 
+The provider has an additional paramater `apply_retry_count` that allows kubernetes commands to be retried on failure.
+This is useful if you have flaky CRDs or network connections and need to wait for the cluster state to be back in quorum.
+This applies to both create and update operations. 
 
 ```hcl
 provider "kubectl" {
-  create_retry_count = 15
+  apply_retry_count = 15
 }
 ```
 

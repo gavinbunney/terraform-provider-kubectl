@@ -39,7 +39,7 @@ func resourceKubectlManifest() *schema.Resource {
 					return err
 				}
 				return err
-			}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), kubectlCreateRetryCount))
+			}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), kubectlApplyRetryCount))
 		},
 		Read:   resourceKubectlManifestRead,
 		Exists: resourceKubectlManifestExists,

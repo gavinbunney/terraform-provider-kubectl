@@ -20,11 +20,11 @@ import (
 func Provider() terraform.ResourceProvider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
-			"create_retry_count": {
+			"apply_retry_count": {
 				Type:        schema.TypeInt,
 				Optional:    true,
 				DefaultFunc: func() (interface{}, error) { return 1, nil },
-				Description: "Defines the number of attempts any create action will take",
+				Description: "Defines the number of attempts any create/update action will take",
 			},
 			"host": {
 				Type:        schema.TypeString,
@@ -129,7 +129,7 @@ type KubeProvider struct {
 	AggregatorClientset *aggregator.Clientset
 }
 
-var kubectlCreateRetryCount uint64
+var kubectlApplyRetryCount uint64
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 
@@ -140,7 +140,7 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 		cfg, err = tryLoadingConfigFile(d)
 	}
 
-	kubectlCreateRetryCount = uint64(d.Get("create_retry_count").(int))
+	kubectlApplyRetryCount = uint64(d.Get("apply_retry_count").(int))
 
 	if err != nil {
 		return nil, err
