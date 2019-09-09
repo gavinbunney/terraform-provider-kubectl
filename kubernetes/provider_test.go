@@ -34,7 +34,7 @@ func testAccCheckkubectlExists(s *terraform.State) error {
 }
 
 func testAccCheckkubectlStatus(s *terraform.State, shouldExist bool) error {
-	provider := testAccProvider.Meta().(KubeProvider)
+	provider := testAccProvider.Meta().(*KubeProvider)
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "kubectl_manifest" {
