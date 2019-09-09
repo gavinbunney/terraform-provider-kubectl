@@ -315,6 +315,10 @@ func resourceKubectlManifestApply(d *schema.ResourceData, meta interface{}) erro
 		return printers.NewDiscardingPrinter(), nil
 	}
 
+	if len(rawObj.GetNamespace()) > 0 {
+		applyOptions.Namespace = rawObj.GetNamespace()
+	}
+
 	err = applyOptions.Run()
 	_ = os.Remove(tmpfile.Name())
 	if err != nil {
