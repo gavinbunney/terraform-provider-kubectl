@@ -3,18 +3,20 @@ package kubernetes
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/hashicorp/terraform/helper/resource"
 	"io/ioutil"
-	"k8s.io/cli-runtime/pkg/printers"
 	"os"
+
+	"github.com/hashicorp/terraform/helper/resource"
+	"k8s.io/cli-runtime/pkg/printers"
+
+	"log"
+	"strings"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	k8sresource "k8s.io/cli-runtime/pkg/resource"
 	apiregistration "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"k8s.io/kubectl/pkg/cmd/apply"
 	k8sdelete "k8s.io/kubectl/pkg/cmd/delete"
-	"log"
-	"strings"
 
 	"github.com/cenkalti/backoff"
 	"github.com/hashicorp/terraform/helper/schema"
@@ -423,7 +425,8 @@ func resourceKubectlManifestDelete(d *schema.ResourceData, meta interface{}) err
 	}
 
 	metaObj := &meta_v1beta1.PartialObjectMetadata{}
-	err = client.Delete(rawObj.GetName(), &meta_v1.DeleteOptions{})
+	deletePropagationBackground := meta_v1.DeletePropagationBackground
+	err = client.Delete(rawObj.GetName(), &meta_v1.DeleteOptions{PropagationPolicy: &deletePropagationBackground})
 	if err != nil {
 		return fmt.Errorf("failed to delete kubernetes resource '%s': %+v", metaObj.SelfLink, err)
 	}
