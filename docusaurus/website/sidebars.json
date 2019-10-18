@@ -1,0 +1,15 @@
+{
+  "docs": {
+    "Kubectl Provider": [
+      "provider"
+    ],
+    "Data Sources": [
+      "data_kubectl_filename_list",
+      "data_kubectl_file_documents",
+      "data_kubectl_path_documents"
+    ],
+    "Resources": [
+      "kubectl_manifest"
+    ]
+  }
+}
