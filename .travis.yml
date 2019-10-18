@@ -21,6 +21,9 @@ script:
   - make build
   - KUBECONFIG=/etc/rancher/k3s/k3s.yaml make testacc
 
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
+
 matrix:
   fast_finish: true
   allow_failures:

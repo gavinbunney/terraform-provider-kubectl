@@ -3,6 +3,8 @@ GOFMT_FILES?=$$(find . -name '*.go' |grep -v vendor)
 PKG_NAME=kubernetes
 export GO111MODULE=on
 
+export TESTARGS=-race -coverprofile=coverage.txt -covermode=atomic
+
 default: build
 
 build: fmtcheck

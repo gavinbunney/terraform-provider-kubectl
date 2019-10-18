@@ -1,6 +1,6 @@
 # Kubernetes "kubectl" Provider 
 
-[![Build Status](https://travis-ci.org/gavinbunney/terraform-provider-kubectl.svg?branch=master)](https://travis-ci.org/gavinbunney/terraform-provider-kubectl)
+[![Build Status](https://travis-ci.org/gavinbunney/terraform-provider-kubectl.svg?branch=master)](https://travis-ci.org/gavinbunney/terraform-provider-kubectl) [![codecov](https://codecov.io/gh/gavinbunney/terraform-provider-kubectl/branch/master/graph/badge.svg)](https://codecov.io/gh/gavinbunney/terraform-provider-kubectl) [![user guide](https://img.shields.io/badge/-user%20guide-blue)](https://gavinbunney.github.io/terraform-provider-kubectl)
 
 This is a fork (of a fork!) of the original provider provided by [nabancard and lawrecncegripper](https://github.com/nabancard/terraform-provider-kubernetes-yaml).
 

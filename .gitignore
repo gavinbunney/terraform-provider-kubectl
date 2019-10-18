@@ -35,3 +35,4 @@ scripts/gogetcookie.sh
 
 node_modules/
 docusaurus/website/build/
+coverage.txt
