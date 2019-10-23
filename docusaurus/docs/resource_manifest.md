@@ -5,6 +5,8 @@ title: kubectl_manifest
 
 Create a Kubernetes resource using raw YAML manifests.
 
+This resource handles creation, deletion and even updating your kubernetes resources. This allows complete lifecycle management of your kubernetes resources are terraform resources!
+
 Behind the scenes, this provider uses the same capability as the `kubectl apply` command, that is, you can update the YAML inline and the resource will be updated in place in kubernetes.
 
 ## Example Usage

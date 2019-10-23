@@ -3,8 +3,6 @@ id: data_kubectl_filename_list
 title: kubectl_filename_list
 ---
 
-This data source allows you to retrieve version information and other application properties of Bitbucket Server.
-
 This provider provides a `data` resource `kubectl_filename_list` to enable ease of working with directories of kubernetes manifests.
 
 ## Example Usage
