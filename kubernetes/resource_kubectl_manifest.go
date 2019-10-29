@@ -503,7 +503,7 @@ func getRestClientFromYaml(yaml string, provider *KubeProvider) (dynamic.Resourc
 	// Validate that the APIVersion provided in the YAML is valid for this cluster
 	apiResource, exists := checkAPIResourceIsPresent(resources, *unstrut)
 	if !exists {
-		return nil, nil, fmt.Errorf("resource provided in yaml isn't valid for cluster, check the APIVersion and Kind fields are valid")
+		return nil, nil, fmt.Errorf("resource [%s/%s] isn't valid for cluster, check the APIVersion and Kind fields are valid", unstrut.GroupVersionKind().GroupVersion().String(), unstrut.GetKind())
 	}
 
 	resourceStruct := k8sschema.GroupVersionResource{Group: apiResource.Group, Version: apiResource.Version, Resource: apiResource.Name}
