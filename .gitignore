@@ -31,7 +31,6 @@ website/vendor
 !command/test-fixtures/**/.terraform/
 **/terraform-provider-kubectl
 k3s
-scripts/gogetcookie.sh
 
 node_modules/
 docusaurus/website/build/

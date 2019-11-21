@@ -9,9 +9,6 @@ dist: xenial
 env:
   - GOPROXY=https://gocenter.io
 
-before_install:
-  - openssl aes-256-cbc -K $encrypted_5981c5a0871d_key -iv $encrypted_5981c5a0871d_iv -in scripts/gogetcookie.sh.enc -out scripts/gogetcookie.sh -d
-
 install:
   - bash scripts/gogetcookie.sh
   - go get github.com/kardianos/govendor
