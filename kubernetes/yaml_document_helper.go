@@ -11,7 +11,24 @@ import (
 func splitMultiDocumentYAML(multidoc string) (documents []string, err error) {
 	content := []byte(multidoc)
 
+	contentSplit := bytes.Split(content, []byte(yamlSeparator))
+
+	//set the maxCapacity using the size of the largest element
+	var maxCapacity = bufio.MaxScanTokenSize
+	for _, element := range contentSplit {
+		if len(element) >= maxCapacity {
+			maxCapacity = len(element) + 100
+		}
+	}
+
 	scanner := bufio.NewScanner(bytes.NewReader(content))
+
+	//increase the buffer token size if file is over the default token size
+	if maxCapacity > bufio.MaxScanTokenSize {
+		buf := make([]byte, maxCapacity)
+		scanner.Buffer(buf, maxCapacity)
+	}
+
 	scanner.Split(splitYAMLDocument)
 
 	for scanner.Scan() {
