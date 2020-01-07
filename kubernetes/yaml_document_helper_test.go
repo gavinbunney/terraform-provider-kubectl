@@ -98,7 +98,7 @@ func buildTestData(count int) (content string) {
 
 func readTestFile() (content string) {
 
-	path := "./resources/01-cert-manager-crds.yaml"
+	path := "../_examples/cert-manager/01-cert-manager-crds.yaml"
 	file, err := ioutil.ReadFile(path)
 	check(err)
 
