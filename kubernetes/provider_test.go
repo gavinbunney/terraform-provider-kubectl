@@ -55,6 +55,11 @@ func testAccCheckkubectlStatus(s *terraform.State, shouldExist bool) error {
 }
 
 func TestProviderConfigureWithExec(t *testing.T) {
+	if os.Getenv("TF_ACC") != "" {
+		t.Skip("The environment variable TF_ACC is set, and this test prevents acceptance tests" +
+			" from running as it alters environment variables - skipping")
+	}
+
 	resetEnv := unsetEnv(t)
 	defer resetEnv()
 
