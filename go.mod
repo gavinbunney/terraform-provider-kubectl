@@ -5,6 +5,7 @@ go 1.12
 require (
 	github.com/cenkalti/backoff v2.1.1+incompatible
 	github.com/google/btree v1.0.0 // indirect
+	github.com/hashicorp/hcl v1.0.0
 	github.com/hashicorp/terraform v0.12.5
 	github.com/icza/dyno v0.0.0-20180601094105-0c96289f9585
 	github.com/mitchellh/go-homedir v1.1.0
