@@ -27,6 +27,31 @@ provider "kubectl" {
 }
 ```
 
+### Exec Plugin Support
+
+As with the Kubernetes Terraform Provider, this provider also supports using a `exec` based plugin (for example when running on EKS).
+
+```hcl
+provider "kubectl" {
+  apply_retry_count      = 15
+  host                   = var.eks_cluster_endpoint
+  cluster_ca_certificate = base64decode(var.eks_cluster_ca)
+  load_config_file       = false
+
+  exec {
+    api_version = "client.authentication.k8s.io/v1alpha1"
+    command     = "aws-iam-authenticator"
+    args = [
+      "token",
+      "-i",
+      module.eks.cluster_id,
+    ]
+  }
+}
+```
+
+### Retry Support
+
 The provider has an additional paramater `apply_retry_count` that allows kubernetes commands to be retried on failure.
 This is useful if you have flaky CRDs or network connections and need to wait for the cluster state to be back in quorum.
 This applies to both create and update operations. 
