@@ -15,7 +15,7 @@ data "kubectl_path_documents" "manifests" {
 
 resource "kubectl_manifest" "test" {
     count = length(data.kubectl_path_documents.manifests.documents)
-    yaml_body = file(element(data.kubectl_path_documents.manifests.documents, count.index))
+    yaml_body = element(data.kubectl_path_documents.manifests.documents, count.index)
 }
 ```
 
