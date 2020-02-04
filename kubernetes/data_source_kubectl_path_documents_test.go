@@ -57,7 +57,7 @@ data "kubectl_path_documents" "test" {
 		name     = "Malcolm"
 	}
 }
-`, path + "/*.yaml"),
+`, path+"/*.yaml"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "7"),
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "MyYaml: Hello, Malcolm!"),
@@ -95,7 +95,7 @@ data "kubectl_path_documents" "test" {
 		the_kind = "MyAwesomeCRD"
 	}
 }
-`, path + "/single-templated.yaml"),
+`, path+"/single-templated.yaml"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "1"),
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "apiVersion: \"stable.example.com/v1\"\nkind: MyAwesomeCRD\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
@@ -119,7 +119,7 @@ data "kubectl_path_documents" "test" {
 		crd_kind = "MyAwesomeCRD"
 	}
 }
-`, path + "/multiple-templated.yaml"),
+`, path+"/multiple-templated.yaml"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "2"),
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "---\napiVersion: \"stable.example.com/v1\"\nkind: CronTab\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
@@ -144,7 +144,7 @@ data "kubectl_path_documents" "test" {
 		name = "Malcolm"
 	}
 }
-`, path + "/directives-templated.yaml"),
+`, path+"/directives-templated.yaml"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "1"),
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "MyYaml: Hello, Malcolm!"),
@@ -168,7 +168,7 @@ data "kubectl_path_documents" "test" {
 		name = ""
 	}
 }
-`, path + "/directives-templated.yaml"),
+`, path+"/directives-templated.yaml"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "1"),
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "MyYaml: Hello, unnamed!"),
