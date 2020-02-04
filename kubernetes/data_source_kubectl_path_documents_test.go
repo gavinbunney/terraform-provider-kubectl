@@ -177,3 +177,25 @@ data "kubectl_path_documents" "test" {
 		},
 	})
 }
+
+func TestAccKubectlDataSourcePathDocuments_disable_template(t *testing.T) {
+	path := "../_examples/manifests"
+	resource.Test(t, resource.TestCase{
+		PreCheck:  func() {},
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: fmt.Sprintf(`
+data "kubectl_path_documents" "test" {
+	pattern          = "%s"
+    disable_template = true
+}
+`, path+"/directives-templated.yaml"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "1"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "MyYaml: Hello, %{ if name != \"\" }${name}%{ else }unnamed%{ endif }!"),
+				),
+			},
+		},
+	})
+}

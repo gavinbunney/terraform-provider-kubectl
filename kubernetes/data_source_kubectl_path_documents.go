@@ -35,6 +35,12 @@ func dataSourceKubectlPathDocuments() *schema.Resource {
 				Description:  "variables to substitute",
 				ValidateFunc: validateVarsAttribute,
 			},
+			"disable_template": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "Flag to disable template parsing of the loaded documents",
+			},
 		},
 	}
 }
@@ -42,6 +48,7 @@ func dataSourceKubectlPathDocuments() *schema.Resource {
 func dataSourceKubectlPathDocumentsRead(d *schema.ResourceData, m interface{}) error {
 	p := d.Get("pattern").(string)
 	vars := d.Get("vars").(map[string]interface{})
+	disableTemplate := d.Get("disable_template").(bool)
 
 	items, err := filepath.Glob(p)
 	if err != nil {
@@ -56,9 +63,12 @@ func dataSourceKubectlPathDocumentsRead(d *schema.ResourceData, m interface{}) e
 		}
 
 		// before splitting the document, parse out any template details
-		rendered, err := parseTemplate(string(content), vars)
-		if err != nil {
-			return fmt.Errorf("failed to render %v: %v", item, err)
+		rendered := string(content)
+		if !disableTemplate {
+			rendered, err = parseTemplate(rendered, vars)
+			if err != nil {
+				return fmt.Errorf("failed to render %v: %v", item, err)
+			}
 		}
 
 		documents, err := splitMultiDocumentYAML(rendered)
