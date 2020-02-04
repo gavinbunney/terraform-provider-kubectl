@@ -284,6 +284,12 @@ metadata:
 				Description: "List of yaml keys to ignore changes to. Set these for fields set by Operators or other processes in kubernetes and as such you don't want to update.",
 				Optional:    true,
 			},
+			"wait_for_rollout": {
+				Type:        schema.TypeBool,
+				Description: "Default to true (waiting). Set this flag to wait or not for Deployments, DaemonSets and APIService to complete rollout",
+				Optional:    true,
+				Default:     true,
+			},
 		},
 	}
 }
@@ -354,23 +360,25 @@ func resourceKubectlManifestApply(d *schema.ResourceData, meta interface{}) erro
 	log.Printf("[DEBUG] kubectl manifest update %+v\n", comparisonString)
 	d.Set("yaml_incluster", comparisonString)
 
-	if rawObj.GetKind() == "Deployment" {
-		err = resource.Retry(d.Timeout(schema.TimeoutCreate),
-			waitForDeploymentReplicasFunc(meta.(*KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
-		if err != nil {
-			return err
-		}
-	} else if rawObj.GetKind() == "DaemonSet" {
-		err = resource.Retry(d.Timeout(schema.TimeoutCreate),
-			waitForDaemonSetReplicasFunc(meta.(*KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
-		if err != nil {
-			return err
-		}
-	} else if rawObj.GetKind() == "APIService" && rawObj.GetAPIVersion() == "apiregistration.k8s.io/v1" {
-		err = resource.Retry(d.Timeout(schema.TimeoutCreate),
-			waitForAPIServiceAvailableFunc(meta.(*KubeProvider), rawObj.GetName()))
-		if err != nil {
-			return err
+	if d.Get("wait_for_rollout").(bool) {
+		if rawObj.GetKind() == "Deployment" {
+			err = resource.Retry(d.Timeout(schema.TimeoutCreate),
+				waitForDeploymentReplicasFunc(meta.(*KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
+			if err != nil {
+				return err
+			}
+		} else if rawObj.GetKind() == "DaemonSet" {
+			err = resource.Retry(d.Timeout(schema.TimeoutCreate),
+				waitForDaemonSetReplicasFunc(meta.(*KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
+			if err != nil {
+				return err
+			}
+		} else if rawObj.GetKind() == "APIService" && rawObj.GetAPIVersion() == "apiregistration.k8s.io/v1" {
+			err = resource.Retry(d.Timeout(schema.TimeoutCreate),
+				waitForAPIServiceAvailableFunc(meta.(*KubeProvider), rawObj.GetName()))
+			if err != nil {
+				return err
+			}
 		}
 	}
 
