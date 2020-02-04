@@ -1,0 +1,7 @@
+apiVersion: "stable.example.com/v1"
+kind: ${the_kind}
+metadata:
+  name: name-here-crd
+spec:
+  cronSpec: "* * * * /5"
+  image: my-awesome-cron-image
