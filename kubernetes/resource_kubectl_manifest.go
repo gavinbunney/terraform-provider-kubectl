@@ -3,11 +3,10 @@ package kubernetes
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os"
-
 	"github.com/hashicorp/terraform/helper/resource"
+	"io/ioutil"
 	"k8s.io/cli-runtime/pkg/printers"
+	"os"
 
 	"log"
 	"strings"
@@ -310,7 +309,9 @@ func resourceKubectlManifestApply(d *schema.ResourceData, meta interface{}) erro
 	_ = tmpfile.Close()
 
 	applyOptions := apply.NewApplyOptions(genericclioptions.IOStreams{
-		In: strings.NewReader(yaml),
+		In:     strings.NewReader(yaml),
+		Out:    log.Writer(),
+		ErrOut: log.Writer(),
 	})
 	applyOptions.Builder = k8sresource.NewBuilder(k8sresource.RESTClientGetter(meta.(*KubeProvider)))
 	applyOptions.DeleteOptions = &k8sdelete.DeleteOptions{
