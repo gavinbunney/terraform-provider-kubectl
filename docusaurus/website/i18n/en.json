@@ -13,6 +13,9 @@
       "data_kubectl_path_documents": {
         "title": "kubectl_path_documents"
       },
+      "data_kubectl_server_version": {
+        "title": "kubectl_server_version"
+      },
       "provider": {
         "title": "Getting Started"
       },

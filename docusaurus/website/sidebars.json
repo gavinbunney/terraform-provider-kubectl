@@ -6,7 +6,8 @@
     "Data Sources": [
       "data_kubectl_filename_list",
       "data_kubectl_file_documents",
-      "data_kubectl_path_documents"
+      "data_kubectl_path_documents",
+      "data_kubectl_server_version"
     ],
     "Resources": [
       "kubectl_manifest"

@@ -147,6 +147,7 @@ func Provider() terraform.ResourceProvider {
 			"kubectl_filename_list":  dataSourceKubectlFilenameList(),
 			"kubectl_file_documents": dataSourceKubectlFileDocuments(),
 			"kubectl_path_documents": dataSourceKubectlPathDocuments(),
+			"kubectl_server_version": dataSourceKubectlServerVersion(),
 		},
 
 		ResourcesMap: map[string]*schema.Resource{
