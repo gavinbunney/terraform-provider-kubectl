@@ -21,6 +21,9 @@
       },
       "kubectl_manifest": {
         "title": "kubectl_manifest"
+      },
+      "kubectl_server_version": {
+        "title": "kubectl_server_version"
       }
     },
     "links": {

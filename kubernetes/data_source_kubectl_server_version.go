@@ -64,7 +64,7 @@ func dataSourceKubectlServerVersionRead(d *schema.ResourceData, meta interface{}
 	if len(serverSemver) >= 3 {
 		_ = d.Set("major", strings.ReplaceAll(serverSemver[0], "v", ""))
 		_ = d.Set("minor", serverSemver[1])
-		_ = d.Set("patch", serverSemver[2])
+		_ = d.Set("patch", strings.Split(serverSemver[2], "-")[0])
 	} else {
 		_ = d.Set("major", serverVersion.Major)
 		_ = d.Set("minor", serverVersion.Minor)

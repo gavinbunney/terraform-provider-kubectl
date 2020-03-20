@@ -151,7 +151,8 @@ func Provider() terraform.ResourceProvider {
 		},
 
 		ResourcesMap: map[string]*schema.Resource{
-			"kubectl_manifest": resourceKubectlManifest(),
+			"kubectl_manifest":       resourceKubectlManifest(),
+			"kubectl_server_version": resourceKubectlServerVersion(),
 		},
 		ConfigureFunc: providerConfigure,
 	}

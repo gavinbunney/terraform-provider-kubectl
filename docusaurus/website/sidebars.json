@@ -10,7 +10,8 @@
       "data_kubectl_server_version"
     ],
     "Resources": [
-      "kubectl_manifest"
+      "kubectl_manifest",
+      "kubectl_server_version"
     ]
   }
 }
