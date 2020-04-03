@@ -10,6 +10,11 @@ func resourceKubectlServerVersion() *schema.Resource {
 		Read:   dataSourceKubectlServerVersionRead,
 		Delete: resourceKubectlServerVersionDelete,
 		Schema: map[string]*schema.Schema{
+			"triggers": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				ForceNew: true,
+			},
 			"version": &schema.Schema{
 				Type:     schema.TypeString,
 				Computed: true,

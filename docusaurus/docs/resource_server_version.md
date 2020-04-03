@@ -13,6 +13,10 @@ This is particularily helpful if you need to match specific components with the 
 resource "kubectl_server_version" "current" { }
 ```
 
+## Argument Reference
+  
+* `triggers` - Optional. Any changes in triggers will force a re-read. Behaves the same as the `null_resource` triggers. 
+
 ## Attribute Reference
 
 * `version` - Version of the server, e.g. `v1.12.10`.
