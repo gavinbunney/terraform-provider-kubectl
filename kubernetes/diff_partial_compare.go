@@ -77,7 +77,7 @@ func getReturnedValueForOriginalFields(original, returned map[string]interface{}
 				for i, _ := range arrayReturned {
 
 					if oValueTop == nil {
-						continue;
+						continue
 					}
 
 					// check if we are outside bounds when array is added on either side that's not in the other
