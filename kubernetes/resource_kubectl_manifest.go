@@ -398,6 +398,13 @@ func resourceKubectlManifestRead(d *schema.ResourceData, meta interface{}) error
 
 	// Get the resource from Kubernetes
 	metaObjLive, err := client.Get(rawObj.GetName(), meta_v1.GetOptions{})
+	resourceGone := errors.IsGone(err) || errors.IsNotFound(err)
+	if resourceGone {
+		log.Printf("[WARN] kubernetes resource (%s) not found, removing from state", d.Id())
+		d.SetId("")
+		return nil
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to get resource '%v/%v' from kubernetes: %+v", rawObj.GetKind(), rawObj.GetName(), err)
 	}
@@ -455,14 +462,14 @@ func resourceKubectlManifestExists(d *schema.ResourceData, meta interface{}) (bo
 	}
 
 	_, err = client.Get(rawObj.GetName(), meta_v1.GetOptions{})
-	exists := !errors.IsGone(err) || !errors.IsNotFound(err)
-	if err != nil && !exists {
+	resourceGone := errors.IsGone(err) || errors.IsNotFound(err)
+	if err != nil && !resourceGone {
 		return false, fmt.Errorf("failed to get resource '%v/%v' from kubernetes: %+v", rawObj.GetKind(), rawObj.GetName(), err)
 	}
-	if exists {
-		return true, nil
+	if resourceGone {
+		return false, nil
 	}
-	return false, nil
+	return true, nil
 }
 
 // To make things play nice we need the JSON representation of the object as the `RawObj`
