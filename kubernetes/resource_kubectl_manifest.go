@@ -443,7 +443,8 @@ func resourceKubectlManifestDelete(d *schema.ResourceData, meta interface{}) err
 	metaObj := &meta_v1beta1.PartialObjectMetadata{}
 	deletePropagationBackground := meta_v1.DeletePropagationBackground
 	err = client.Delete(rawObj.GetName(), &meta_v1.DeleteOptions{PropagationPolicy: &deletePropagationBackground})
-	if err != nil {
+	resourceGone := errors.IsGone(err) || errors.IsNotFound(err)
+	if err != nil && !resourceGone {
 		return fmt.Errorf("failed to delete kubernetes resource '%s': %+v", metaObj.SelfLink, err)
 	}
 
