@@ -3,23 +3,23 @@ package kubernetes
 import (
 	"bytes"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/restmapper"
-	"log"
-	"os"
-
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
 	"github.com/mitchellh/go-homedir"
+	"k8s.io/apimachinery/pkg/api/meta"
 	k8sresource "k8s.io/cli-runtime/pkg/resource"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
 	kubernetes "k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	aggregator "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
+	"log"
+	"os"
+	"strconv"
 )
 
 func Provider() terraform.ResourceProvider {
@@ -201,6 +201,10 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	}
 
 	kubectlApplyRetryCount = uint64(d.Get("apply_retry_count").(int))
+	if os.Getenv("KUBECTL_PROVIDER_APPLY_RETRY_COUNT") != "" {
+		applyEnvValue, _ := strconv.Atoi(os.Getenv("KUBECTL_PROVIDER_APPLY_RETRY_COUNT"))
+		kubectlApplyRetryCount = uint64(applyEnvValue)
+	}
 
 	if err != nil {
 		return nil, err

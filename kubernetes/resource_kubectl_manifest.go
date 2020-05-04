@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"k8s.io/cli-runtime/pkg/printers"
 	"os"
+	"time"
 
 	"log"
 	"strings"
@@ -40,27 +41,36 @@ const (
 )
 
 func resourceKubectlManifest() *schema.Resource {
+
+	retryCommand := func(operation backoff.Operation) error {
+		exponentialBackoffConfig := backoff.NewExponentialBackOff()
+		exponentialBackoffConfig.InitialInterval = 2 * time.Second
+		exponentialBackoffConfig.MaxInterval = 1 * time.Minute
+
+		if kubectlApplyRetryCount > 0 {
+			retryConfig := backoff.WithMaxRetries(exponentialBackoffConfig, kubectlApplyRetryCount)
+			return backoff.Retry(operation, retryConfig)
+		} else {
+			return operation()
+		}
+	}
+
 	return &schema.Resource{
 		Create: func(d *schema.ResourceData, meta interface{}) error {
-			return backoff.Retry(func() error {
-				err := resourceKubectlManifestApply(d, meta)
-				if err != nil {
-					return err
-				}
-				return err
-			}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), kubectlApplyRetryCount))
+			return retryCommand(func() error {
+				return resourceKubectlManifestApply(d, meta)
+			})
 		},
 		Read:   resourceKubectlManifestRead,
 		Exists: resourceKubectlManifestExists,
 		Delete: resourceKubectlManifestDelete,
 		Update: func(d *schema.ResourceData, meta interface{}) error {
-			return backoff.Retry(func() error {
-				err := resourceKubectlManifestApply(d, meta)
-				if err != nil {
-					return err
-				}
-				return err
-			}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), kubectlApplyRetryCount))
+			return retryCommand(func() error {
+				return resourceKubectlManifestApply(d, meta)
+			})
+		},
+		Timeouts: &schema.ResourceTimeout{
+			Create: schema.DefaultTimeout(5 * time.Minute),
 		},
 		Importer: &schema.ResourceImporter{
 			State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
