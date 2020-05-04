@@ -11,13 +11,13 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/stretchr/testify v1.4.0
 	github.com/zclconf/go-cty v1.2.1
-	gopkg.in/yaml.v2 v2.2.4
-	k8s.io/api v0.17.0
-	k8s.io/apimachinery v0.17.0
-	k8s.io/cli-runtime v0.17.0
-	k8s.io/client-go v0.17.0
-	k8s.io/kube-aggregator v0.17.0
-	k8s.io/kubectl v0.17.0
+	gopkg.in/yaml.v2 v2.2.8
+	k8s.io/api v0.17.5
+	k8s.io/apimachinery v0.17.5
+	k8s.io/cli-runtime v0.17.5
+	k8s.io/client-go v0.17.5
+	k8s.io/kube-aggregator v0.17.5
+	k8s.io/kubectl v0.17.5
 	sigs.k8s.io/yaml v1.1.0
 )
 

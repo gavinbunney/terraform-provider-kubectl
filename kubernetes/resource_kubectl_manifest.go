@@ -42,32 +42,37 @@ const (
 
 func resourceKubectlManifest() *schema.Resource {
 
-	retryCommand := func(operation backoff.Operation) error {
-		exponentialBackoffConfig := backoff.NewExponentialBackOff()
-		exponentialBackoffConfig.InitialInterval = 2 * time.Second
-		exponentialBackoffConfig.MaxInterval = 1 * time.Minute
-
-		if kubectlApplyRetryCount > 0 {
-			retryConfig := backoff.WithMaxRetries(exponentialBackoffConfig, kubectlApplyRetryCount)
-			return backoff.Retry(operation, retryConfig)
-		} else {
-			return operation()
-		}
-	}
-
 	return &schema.Resource{
 		Create: func(d *schema.ResourceData, meta interface{}) error {
-			return retryCommand(func() error {
+			exponentialBackoffConfig := backoff.NewExponentialBackOff()
+			exponentialBackoffConfig.InitialInterval = 0 * time.Second
+			exponentialBackoffConfig.MaxInterval = 1 * time.Minute
+
+			if kubectlApplyRetryCount > 0 {
+				retryConfig := backoff.WithMaxRetries(exponentialBackoffConfig, kubectlApplyRetryCount)
+				return backoff.Retry(func() error {
+					return resourceKubectlManifestApply(d, meta)
+				}, retryConfig)
+			} else {
 				return resourceKubectlManifestApply(d, meta)
-			})
+			}
 		},
 		Read:   resourceKubectlManifestRead,
 		Exists: resourceKubectlManifestExists,
 		Delete: resourceKubectlManifestDelete,
 		Update: func(d *schema.ResourceData, meta interface{}) error {
-			return retryCommand(func() error {
+			exponentialBackoffConfig := backoff.NewExponentialBackOff()
+			exponentialBackoffConfig.InitialInterval = 2 * time.Second
+			exponentialBackoffConfig.MaxInterval = 1 * time.Minute
+
+			if kubectlApplyRetryCount > 0 {
+				retryConfig := backoff.WithMaxRetries(exponentialBackoffConfig, kubectlApplyRetryCount)
+				return backoff.Retry(func() error {
+					return resourceKubectlManifestApply(d, meta)
+				}, retryConfig)
+			} else {
 				return resourceKubectlManifestApply(d, meta)
-			})
+			}
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(5 * time.Minute),
