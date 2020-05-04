@@ -1,3 +1,4 @@
+CURRENT_DIR=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 TEST?=$$(go list ./... |grep -v 'vendor')
 GOFMT_FILES?=$$(find . -name '*.go' |grep -v vendor)
 PKG_NAME=kubernetes
@@ -18,11 +19,14 @@ test: fmtcheck
 testacc: fmtcheck
 	TF_ACC=1 go test ./kubernetes -v $(TESTARGS) -timeout 120m -count=1
 
-testacc-startk3:
-	rm -f -r /var/lib/rancher/k3s/data && /home/lawrence/go/bin/k3s server
+k3s-start:
+	@bash scripts/start-k3s.sh
 
-testacck3: fmtcheck
-	TF_ACC=1 TF_LOG=DEBUG KUBECONFIG=/etc/rancher/k3s/k3s.yaml go test ./kubernetes -v $(TESTARGS) -timeout 120m -count=1
+k3s-stop:
+	@bash scripts/stop-k3s.sh
+
+testacc-local:
+	KUBECONFIG=$(CURRENT_DIR)/scripts/kubeconfig.yaml TF_ACC=1 go test ./kubernetes -v $(TESTARGS) -timeout 120m -count=1
 
 vet:
 	@echo "go vet ."

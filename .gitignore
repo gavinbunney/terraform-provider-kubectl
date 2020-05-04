@@ -35,3 +35,4 @@ k3s
 node_modules/
 docusaurus/website/build/
 coverage.txt
+scripts/kubeconfig.yaml

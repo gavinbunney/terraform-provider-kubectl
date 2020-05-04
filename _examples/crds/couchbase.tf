@@ -65,7 +65,7 @@ spec:
 
 resource "kubectl_manifest" "definecrd" {
     yaml_body = <<YAML
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: couchbaseclusters.couchbase.com
@@ -401,5 +401,18 @@ spec:
   - name: v1
     served: true
     storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              cronSpec:
+                type: string
+              image:
+                type: string
+              replicas:
+                type: integer
     YAML
 }
