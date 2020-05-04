@@ -11,7 +11,7 @@ env:
 
 before_install:
   - sudo rm /usr/local/bin/docker-compose
-  - curl -L https://github.com/docker/compose/releases/download/1.4.2/docker-compose-`uname -s`-`uname -m` > docker-compose
+  - curl -L https://github.com/docker/compose/releases/download/1.25.4/docker-compose-`uname -s`-`uname -m` > docker-compose
   - chmod +x docker-compose
   - sudo mv docker-compose /usr/local/bin
 
@@ -20,9 +20,7 @@ install:
   - go get github.com/kardianos/govendor
 
 script:
-  - make k3s-start
-  - make build
-  - make testacc
+  - make k3s-start build testacc
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
