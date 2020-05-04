@@ -17,16 +17,13 @@ test: fmtcheck
 		xargs -t -n4 go test $(TESTARGS) -timeout=30s -parallel=4
 
 testacc: fmtcheck
-	TF_ACC=1 go test ./kubernetes -v $(TESTARGS) -timeout 120m -count=1
+	KUBECONFIG=$(CURRENT_DIR)/scripts/kubeconfig.yaml TF_ACC=1 go test ./kubernetes -v $(TESTARGS) -timeout 120m -count=1
 
 k3s-start:
 	@bash scripts/start-k3s.sh
 
 k3s-stop:
 	@bash scripts/stop-k3s.sh
-
-testacc-local:
-	KUBECONFIG=$(CURRENT_DIR)/scripts/kubeconfig.yaml TF_ACC=1 go test ./kubernetes -v $(TESTARGS) -timeout 120m -count=1
 
 vet:
 	@echo "go vet ."
