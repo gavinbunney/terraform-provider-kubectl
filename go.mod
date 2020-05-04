@@ -1,6 +1,6 @@
 module github.com/gavinbunney/terraform-provider-kubectl
 
-go 1.13
+go 1.14
 
 require (
 	github.com/cenkalti/backoff v2.1.1+incompatible
