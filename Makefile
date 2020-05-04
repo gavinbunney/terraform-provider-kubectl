@@ -5,6 +5,7 @@ PKG_NAME=kubernetes
 export GO111MODULE=on
 
 export TESTARGS=-race -coverprofile=coverage.txt -covermode=atomic
+export KUBECONFIG=$(CURRENT_DIR)/scripts/kubeconfig.yaml
 
 default: build
 
@@ -17,7 +18,7 @@ test: fmtcheck
 		xargs -t -n4 go test $(TESTARGS) -timeout=30s -parallel=4
 
 testacc: fmtcheck
-	KUBECONFIG=$(CURRENT_DIR)/scripts/kubeconfig.yaml TF_ACC=1 go test ./kubernetes -v $(TESTARGS) -timeout 120m -count=1
+	TF_ACC=1 go test ./kubernetes -v $(TESTARGS) -timeout 120m -count=1
 
 k3s-start:
 	@bash scripts/start-k3s.sh

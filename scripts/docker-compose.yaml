@@ -8,7 +8,7 @@ services:
       - K3S_KUBECONFIG_OUTPUT=/output/kubeconfig.yaml
       - K3S_KUBECONFIG_MODE=666
     volumes:
-      - ../scripts:/output
+      - ${TRAVIS_BUILD_DIR:-..}/scripts:/output
     ports:
       - 6443:6443
 
