@@ -2,21 +2,18 @@ provider "kubectl" {}
 
 resource "kubectl_manifest" "test" {
     yaml_body = <<YAML
-apiVersion: extensions/v1beta1
-kind: Ingress
+apiVersion: v1
+kind: Service
 metadata:
   name: name-here
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    azure/frontdoor: enabled
 spec:
-  rules:
-  - http:
-      paths:
-      - path: /testpath
-        backend:
-          serviceName: test
-          servicePort: 80
-    YAML
+  ports:
+    - name: https
+      port: 443
+      targetPort: 8443
+    - name: http
+      port: 80
+      targetPort: 9090
+YAML
 }
 

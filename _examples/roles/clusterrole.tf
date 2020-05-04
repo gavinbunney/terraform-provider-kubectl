@@ -8,7 +8,7 @@ kind: ServiceAccount
 metadata:
   name: name-here
   namespace: default
-    YAML
+YAML
 }
 
 resource "kubectl_manifest" "test" {
@@ -27,5 +27,5 @@ subjects:
   - kind: ServiceAccount
     name: name-here
     namespace: kube-system
-    YAML
+YAML
 }

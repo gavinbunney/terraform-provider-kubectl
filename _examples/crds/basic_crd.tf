@@ -1,5 +1,5 @@
 provider "kubectl" {
-  apply_retry_count = 15
+  apply_retry_count = 5
 }
 
 
@@ -13,7 +13,7 @@ metadata:
 spec: 
   cronSpec: "* * * * /5"
   image: my-awesome-cron-image 
-    YAML
+YAML
 }
 
 resource "kubectl_manifest" "definecrd" {
@@ -38,5 +38,5 @@ spec:
   - name: v1
     served: true
     storage: true
-    YAML
+YAML
 }

@@ -1,5 +1,5 @@
 provider "kubectl" {
-  apply_retry_count = 15
+  apply_retry_count = 5
 }
 
 resource "kubectl_manifest" "test" {

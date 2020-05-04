@@ -7,13 +7,13 @@ kind: Ingress
 metadata:
   name: name-here
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/rewrite-target: "/"
     azure/frontdoor: enabled
 spec:
   rules:
   - http:
       paths:
-      - path: /testpath
+      - path: "/testpath"
         backend:
           serviceName: test
           servicePort: 80
