@@ -213,6 +213,9 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 		cfg = &restclient.Config{}
 	}
 
+	cfg.QPS = 100.0
+	cfg.Burst = 500
+
 	// Overriding with static configuration
 	cfg.UserAgent = fmt.Sprintf("HashiCorp/1.0 Terraform/%s", terraform.VersionString())
 
