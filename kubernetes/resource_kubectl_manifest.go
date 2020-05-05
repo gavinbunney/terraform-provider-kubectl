@@ -58,7 +58,6 @@ func resourceKubectlManifest() *schema.Resource {
 			}
 		},
 		Read:   resourceKubectlManifestRead,
-		Exists: resourceKubectlManifestExists,
 		Delete: resourceKubectlManifestDelete,
 		Update: func(d *schema.ResourceData, meta interface{}) error {
 			exponentialBackoffConfig := backoff.NewExponentialBackOff()
@@ -398,7 +397,7 @@ func resourceKubectlManifestApply(d *schema.ResourceData, meta interface{}) erro
 		}
 	}
 
-	return resourceKubectlManifestRead(d, meta)
+	return resourceKubectlManifestReadUsingClient(d, meta, client, rawObj)
 }
 
 func resourceKubectlManifestRead(d *schema.ResourceData, meta interface{}) error {
@@ -410,6 +409,11 @@ func resourceKubectlManifestRead(d *schema.ResourceData, meta interface{}) error
 	if err != nil {
 		return fmt.Errorf("failed to create kubernetes rest client for read of resource: %+v", err)
 	}
+
+	return resourceKubectlManifestReadUsingClient(d, meta, client, rawObj)
+}
+
+func resourceKubectlManifestReadUsingClient(d *schema.ResourceData, meta interface{}, client dynamic.ResourceInterface, rawObj *meta_v1_unstruct.Unstructured) error {
 
 	// Get the resource from Kubernetes
 	metaObjLive, err := client.Get(rawObj.GetName(), meta_v1.GetOptions{})
@@ -467,25 +471,6 @@ func resourceKubectlManifestDelete(d *schema.ResourceData, meta interface{}) err
 	d.SetId("")
 
 	return nil
-}
-
-func resourceKubectlManifestExists(d *schema.ResourceData, meta interface{}) (bool, error) {
-	yaml := d.Get("yaml_body").(string)
-
-	client, rawObj, err := getRestClientFromYaml(yaml, meta.(*KubeProvider))
-	if err != nil {
-		return false, fmt.Errorf("failed to create kubernetes rest client for exists check of resource: %+v", err)
-	}
-
-	_, err = client.Get(rawObj.GetName(), meta_v1.GetOptions{})
-	resourceGone := errors.IsGone(err) || errors.IsNotFound(err)
-	if err != nil && !resourceGone {
-		return false, fmt.Errorf("failed to get resource '%v/%v' from kubernetes: %+v", rawObj.GetKind(), rawObj.GetName(), err)
-	}
-	if resourceGone {
-		return false, nil
-	}
-	return true, nil
 }
 
 // To make things play nice we need the JSON representation of the object as the `RawObj`
