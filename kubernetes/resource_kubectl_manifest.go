@@ -523,8 +523,9 @@ func getRestClientFromYaml(yaml string, provider *KubeProvider) (dynamic.Resourc
 	}
 
 	// Use the k8s Discovery service to find all valid APIs for this cluster
-	discoveryClient := provider.MainClientset.Discovery()
+	discoveryClient, _ := provider.ToDiscoveryClient()
 	_, resources, err := discoveryClient.ServerGroupsAndResources()
+
 	// There is a partial failure mode here where not all groups are returned `GroupDiscoveryFailedError`
 	// we'll try and continue in this condition as it's likely something we don't need
 	// and if it is the `checkAPIResourceIsPresent` check will fail and stop the process
