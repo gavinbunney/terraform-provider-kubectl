@@ -299,7 +299,7 @@ metadata:
 			},
 			"wait_for_rollout": {
 				Type:        schema.TypeBool,
-				Description: "Default to true (waiting). Set this flag to wait or not for Deployments, DaemonSets and APIService to complete rollout",
+				Description: "Default to true (waiting). Set this flag to wait or not for Deployments and APIService to complete rollout",
 				Optional:    true,
 				Default:     true,
 			},
@@ -379,12 +379,6 @@ func resourceKubectlManifestApply(d *schema.ResourceData, meta interface{}) erro
 		if rawObj.GetKind() == "Deployment" {
 			err = resource.Retry(d.Timeout(schema.TimeoutCreate),
 				waitForDeploymentReplicasFunc(meta.(*KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
-			if err != nil {
-				return err
-			}
-		} else if rawObj.GetKind() == "DaemonSet" {
-			err = resource.Retry(d.Timeout(schema.TimeoutCreate),
-				waitForDaemonSetReplicasFunc(meta.(*KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
 			if err != nil {
 				return err
 			}
@@ -606,27 +600,6 @@ func waitForDeploymentReplicasFunc(provider *KubeProvider, ns, name string) reso
 			return resource.RetryableError(fmt.Errorf("Waiting for rollout to start"))
 		}
 		return nil
-	}
-}
-
-func waitForDaemonSetReplicasFunc(provider *KubeProvider, ns, name string) resource.RetryFunc {
-	return func() *resource.RetryError {
-
-		daemonSet, err := provider.MainClientset.AppsV1().DaemonSets(ns).Get(name, meta_v1.GetOptions{})
-		if err != nil {
-			return resource.NonRetryableError(err)
-		}
-
-		desiredReplicas := daemonSet.Status.DesiredNumberScheduled
-		log.Printf("[DEBUG] Current number of labelled replicas of %q: %d (of %d)\n",
-			daemonSet.GetName(), daemonSet.Status.CurrentNumberScheduled, desiredReplicas)
-
-		if daemonSet.Status.CurrentNumberScheduled == desiredReplicas {
-			return nil
-		}
-
-		return resource.RetryableError(fmt.Errorf("Waiting for %d replicas of %q to be scheduled (%d)",
-			desiredReplicas, daemonSet.GetName(), daemonSet.Status.CurrentNumberScheduled))
 	}
 }
 

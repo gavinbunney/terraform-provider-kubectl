@@ -39,7 +39,7 @@ YAML
 * `yaml_body` - Required. YAML to apply to kubernetes.
 * `force_new` - Optional. Forces delete & create of resources if the `yaml_body` changes. Default `false`.
 * `ignore_fields` - Optional. List of map fields to ignore when applying the manifest. See below for more details.
-* `wait_for_rollout` - Optional. Set this flag to wait or not for Deployments, DaemonSets and APIService to complete rollout. Default `true`.
+* `wait_for_rollout` - Optional. Set this flag to wait or not for Deployments and APIService to complete rollout. Default `true`.
 
 ## Attribute Reference
 
@@ -76,7 +76,7 @@ YAML
 
 ## Waiting for Rollout
 
-By default, this resource will wait for Deployments, DaemonSets and APIServices to complete their rollout before proceeding.
+By default, this resource will wait for Deployments and APIServices to complete their rollout before proceeding.
 You can disable this behavior by setting the `wait_for_rollout` field to `false`.
 
 ## Import
