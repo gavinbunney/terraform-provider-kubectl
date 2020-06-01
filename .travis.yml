@@ -6,8 +6,8 @@ go:
   - "1.14.x"
 dist: xenial
 
-env:
-  - GOPROXY=https://gocenter.io
+#env:
+#  - GOPROXY=https://gocenter.io
 
 before_install:
   - sudo rm /usr/local/bin/docker-compose
