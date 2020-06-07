@@ -5,8 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hashicorp/hcl"
-	"github.com/hashicorp/terraform/config"
+	"github.com/hashicorp/hcl2/hcl"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -85,13 +84,9 @@ exec {
 		t.Fatal(err)
 	}
 
-	c, err := config.NewRawConfig(confmap)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rc := terraform.NewResourceConfig(c)
+	rc := terraform.NewResourceConfigRaw(confmap)
 	p := Provider()
-	err = p.Configure(rc)
+	err := p.Configure(rc)
 	if err != nil {
 		t.Fatal(err)
 	}
