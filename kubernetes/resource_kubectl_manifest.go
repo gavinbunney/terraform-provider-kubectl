@@ -45,7 +45,7 @@ func resourceKubectlManifest() *schema.Resource {
 		Create: func(d *schema.ResourceData, meta interface{}) error {
 			exponentialBackoffConfig := backoff.NewExponentialBackOff()
 			exponentialBackoffConfig.InitialInterval = 3 * time.Second
-			exponentialBackoffConfig.MaxInterval = 1 * time.Minute
+			exponentialBackoffConfig.MaxInterval = 30 * time.Second
 
 			if kubectlApplyRetryCount > 0 {
 				retryConfig := backoff.WithMaxRetries(exponentialBackoffConfig, kubectlApplyRetryCount)
@@ -66,7 +66,7 @@ func resourceKubectlManifest() *schema.Resource {
 		Update: func(d *schema.ResourceData, meta interface{}) error {
 			exponentialBackoffConfig := backoff.NewExponentialBackOff()
 			exponentialBackoffConfig.InitialInterval = 3 * time.Second
-			exponentialBackoffConfig.MaxInterval = 1 * time.Minute
+			exponentialBackoffConfig.MaxInterval = 30 * time.Second
 
 			if kubectlApplyRetryCount > 0 {
 				retryConfig := backoff.WithMaxRetries(exponentialBackoffConfig, kubectlApplyRetryCount)
