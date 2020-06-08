@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	meta_v1_unstruct "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	meta_v1beta1 "k8s.io/apimachinery/pkg/apis/meta/v1beta1"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	yamlWriter "sigs.k8s.io/yaml"
 
@@ -105,14 +104,18 @@ metadata:
 `, apiVersion, kind, name)
 				}
 
-				client, rawObj, err := getRestClientFromYaml(yaml, meta.(*KubeProvider))
+				manifest, err := parseYaml(yaml)
+				if err != nil {
+					return nil, err
+				}
+				client, err := getRestClientFromUnstructured(manifest, meta.(*KubeProvider))
 
 				if err != nil {
-					return []*schema.ResourceData{}, fmt.Errorf("failed to create kubernetes rest client for import of resource: %s %s %s %+v %s %s", apiVersion, kind, name, err, yaml, rawObj)
+					return []*schema.ResourceData{}, fmt.Errorf("failed to create kubernetes rest client for import of resource: %s %s %s %+v %s %s", apiVersion, kind, name, err, yaml, manifest.unstruct)
 				}
 
 				// Get the resource from Kubernetes
-				metaObjLive, err := client.Get(rawObj.GetName(), meta_v1.GetOptions{})
+				metaObjLive, err := client.Get(manifest.unstruct.GetName(), meta_v1.GetOptions{})
 				if err != nil {
 					return []*schema.ResourceData{}, fmt.Errorf("failed to get resource %s %s %s from kubernetes: %+v", apiVersion, kind, name, err)
 				}
@@ -123,10 +126,10 @@ metadata:
 
 				// Capture the UID and Resource_version from the cluster at the current time
 
-				d.Set("uid", metaObjLive.GetUID())
-				d.Set("live_uid", metaObjLive.GetUID())
-				d.Set("resource_version", metaObjLive.GetResourceVersion())
-				d.Set("live_resource_version", metaObjLive.GetResourceVersion())
+				_ = d.Set("uid", metaObjLive.GetUID())
+				_ = d.Set("live_uid", metaObjLive.GetUID())
+				_ = d.Set("resource_version", metaObjLive.GetResourceVersion())
+				_ = d.Set("live_resource_version", metaObjLive.GetResourceVersion())
 
 				var ignoreFields []string = nil
 				ignoreFieldsRaw, hasIgnoreFields := d.GetOk("ignore_fields")
@@ -139,16 +142,16 @@ metadata:
 					return []*schema.ResourceData{}, err
 				}
 
-				d.Set("yaml_incluster", comparisonOutput)
-				d.Set("live_manifest_incluster", comparisonOutput)
+				_ = d.Set("yaml_incluster", comparisonOutput)
+				_ = d.Set("live_manifest_incluster", comparisonOutput)
 
 				// set fields captured normally during creation/updates
 				d.SetId(metaObjLive.GetSelfLink())
-				d.Set("api_version", metaObjLive.GetAPIVersion())
-				d.Set("kind", metaObjLive.GetKind())
-				d.Set("namespace", metaObjLive.GetNamespace())
-				d.Set("name", metaObjLive.GetName())
-				d.Set("force_new", false)
+				_ = d.Set("api_version", metaObjLive.GetAPIVersion())
+				_ = d.Set("kind", metaObjLive.GetKind())
+				_ = d.Set("namespace", metaObjLive.GetNamespace())
+				_ = d.Set("name", metaObjLive.GetName())
+				_ = d.Set("force_new", false)
 
 				// clear out fields user can't set to try and get parity with yaml_body
 				meta_v1_unstruct.RemoveNestedField(metaObjLive.Object, "metadata", "creationTimestamp")
@@ -171,7 +174,7 @@ metadata:
 					return []*schema.ResourceData{}, fmt.Errorf("failed to convert json to yaml: %+v", err)
 				}
 
-				d.Set("yaml_body", string(yamlParsed))
+				_ = d.Set("yaml_body", string(yamlParsed))
 
 				return []*schema.ResourceData{d}, nil
 			},
@@ -180,7 +183,7 @@ metadata:
 
 			// trigger a recreation if the yaml-body has any pending changes
 			if d.Get("force_new").(bool) {
-				d.ForceNew("yaml_body")
+				_ = d.ForceNew("yaml_body")
 			}
 
 			if !d.NewValueKnown("yaml_body") {
@@ -193,10 +196,10 @@ metadata:
 				return err
 			}
 
-			d.SetNew("api_version", parsedYaml.GetAPIVersion())
-			d.SetNew("kind", parsedYaml.GetKind())
-			d.SetNew("namespace", parsedYaml.GetNamespace())
-			d.SetNew("name", parsedYaml.GetName())
+			_ = d.SetNew("api_version", parsedYaml.unstruct.GetAPIVersion())
+			_ = d.SetNew("kind", parsedYaml.unstruct.GetKind())
+			_ = d.SetNew("namespace", parsedYaml.unstruct.GetNamespace())
+			_ = d.SetNew("name", parsedYaml.unstruct.GetName())
 
 			// Get the UID of the K8s resource as it was when the `resourceKubectlManifestCreate` func completed.
 			createdAtUID := d.Get("uid").(string)
@@ -218,7 +221,7 @@ metadata:
 			// trigger an update on the resource to get back in sync
 			if UID != createdAtUID {
 				log.Printf("[TRACE] DETECTED %s vs %s", UID, createdAtUID)
-				d.SetNewComputed("uid")
+				_ = d.SetNewComputed("uid")
 				return nil
 			}
 
@@ -229,7 +232,7 @@ metadata:
 				liveStateYaml := d.Get("live_manifest_incluster").(string)
 				if stateYaml != liveStateYaml {
 					log.Printf("[TRACE] DETECTED YAML STATE %s vs %s", stateYaml, liveStateYaml)
-					d.SetNewComputed("yaml_incluster")
+					_ = d.SetNewComputed("yaml_incluster")
 				}
 				return nil
 			}
@@ -307,14 +310,38 @@ metadata:
 	}
 }
 
+type UnstructuredManifest struct {
+	unstruct *meta_v1_unstruct.Unstructured
+}
+
+func (m *UnstructuredManifest) hasNamespace() bool {
+	ns := m.unstruct.GetNamespace()
+	return ns != ""
+}
+
+func (m *UnstructuredManifest) String() string {
+	if m.hasNamespace() {
+		return fmt.Sprintf("%s/%s", m.unstruct.GetNamespace(), m.unstruct.GetName())
+	}
+
+	return m.unstruct.GetName()
+}
+
 func resourceKubectlManifestApply(d *schema.ResourceData, meta interface{}) error {
+
 	yaml := d.Get("yaml_body").(string)
+	manifest, err := parseYaml(yaml)
+	if err != nil {
+		return fmt.Errorf("failed to parse kubernetes resource: %+v", err)
+	}
+
+	log.Printf("[DEBUG] %v apply kubernetes resource:\n%s", manifest, yaml)
 
 	// Create a client to talk to the resource API based on the APIVersion and Kind
 	// defined in the YAML
-	client, rawObj, err := getRestClientFromYaml(yaml, meta.(*KubeProvider))
+	client, err := getRestClientFromUnstructured(manifest, meta.(*KubeProvider))
 	if err != nil {
-		return fmt.Errorf("failed to create kubernetes rest client for update of resource: %+v", err)
+		return fmt.Errorf("%v failed to create kubernetes rest client for update of resource: %+v", manifest, err)
 	}
 
 	// Update the resource in Kubernetes, using a temp file
@@ -338,79 +365,94 @@ func resourceKubectlManifestApply(d *schema.ResourceData, meta interface{}) erro
 		return printers.NewDiscardingPrinter(), nil
 	}
 
-	if len(rawObj.GetNamespace()) > 0 {
-		applyOptions.Namespace = rawObj.GetNamespace()
+	if manifest.hasNamespace() {
+		applyOptions.Namespace = manifest.unstruct.GetNamespace()
 	}
+
+	log.Printf("[INFO] %s perform apply of manifest", manifest)
 
 	err = applyOptions.Run()
 	_ = os.Remove(tmpfile.Name())
 	if err != nil {
-		return fmt.Errorf("failed to run apply options '%v/%v': %+v", rawObj.GetKind(), rawObj.GetName(), err)
+		return fmt.Errorf("%v failed to run apply options: %+v", manifest, err)
 	}
 
-	// Get the resource from Kubernetes
-	response, err := client.Get(rawObj.GetName(), meta_v1.GetOptions{})
+	log.Printf("[INFO] %v manifest applied, fetch resource from kubernetes", manifest)
+
+	// get the resource from Kubernetes
+	response, err := client.Get(manifest.unstruct.GetName(), meta_v1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get resource '%v/%v' from kubernetes: %+v", rawObj.GetKind(), rawObj.GetName(), err)
+		return fmt.Errorf("%v failed to fetch resource from kubernetes: %+v", manifest, err)
 	}
 
 	d.SetId(response.GetSelfLink())
+	log.Printf("[DEBUG] %v fetched successfully, set id to: %v", manifest, d.Id())
+
 	// Capture the UID and Resource_version at time of update
 	// this allows us to diff these against the actual values
 	// read in by the 'resourceKubectlManifestRead'
-	d.Set("uid", response.GetUID())
-	d.Set("resource_version", response.GetResourceVersion())
+	_ = d.Set("uid", response.GetUID())
+	_ = d.Set("resource_version", response.GetResourceVersion())
 
 	var ignoreFields []string = nil
 	ignoreFieldsRaw, hasIgnoreFields := d.GetOk("ignore_fields")
 	if hasIgnoreFields {
 		ignoreFields = expandStringList(ignoreFieldsRaw.([]interface{}))
 	}
-	comparisonString, err := compareMaps(rawObj.UnstructuredContent(), response.UnstructuredContent(), ignoreFields)
 
+	comparisonString, err := compareMaps(manifest.unstruct.UnstructuredContent(), response.UnstructuredContent(), ignoreFields)
 	if err != nil {
-		return err
+		return fmt.Errorf("%v failed to compare maps of manifest vs version in kubernetes: %+v", manifest, err)
 	}
 
-	log.Printf("[DEBUG] kubectl manifest update %+v\n", comparisonString)
-	d.Set("yaml_incluster", comparisonString)
+	_ = d.Set("yaml_incluster", comparisonString)
 
 	if d.Get("wait_for_rollout").(bool) {
-		if rawObj.GetKind() == "Deployment" {
-			err = resource.Retry(d.Timeout(schema.TimeoutCreate),
-				waitForDeploymentReplicasFunc(meta.(*KubeProvider), rawObj.GetNamespace(), rawObj.GetName()))
+		timeout := d.Timeout(schema.TimeoutCreate)
+
+		if manifest.unstruct.GetKind() == "Deployment" {
+			log.Printf("[INFO] %v waiting for deployment rollout for %vmin", manifest, timeout.Minutes())
+			err = resource.Retry(timeout,
+				waitForDeploymentReplicasFunc(meta.(*KubeProvider), manifest.unstruct.GetNamespace(), manifest.unstruct.GetName()))
 			if err != nil {
 				return err
 			}
-		} else if rawObj.GetKind() == "APIService" && rawObj.GetAPIVersion() == "apiregistration.k8s.io/v1" {
-			err = resource.Retry(d.Timeout(schema.TimeoutCreate),
-				waitForAPIServiceAvailableFunc(meta.(*KubeProvider), rawObj.GetName()))
+		} else if manifest.unstruct.GetKind() == "APIService" && manifest.unstruct.GetAPIVersion() == "apiregistration.k8s.io/v1" {
+			log.Printf("[INFO] %v waiting for APIService rollout for %vmin", manifest, timeout.Minutes())
+			err = resource.Retry(timeout,
+				waitForAPIServiceAvailableFunc(meta.(*KubeProvider), manifest.unstruct.GetName()))
 			if err != nil {
 				return err
 			}
 		}
 	}
 
-	return resourceKubectlManifestReadUsingClient(d, meta, client, rawObj)
+	return resourceKubectlManifestReadUsingClient(d, meta, client, manifest)
 }
 
 func resourceKubectlManifestRead(d *schema.ResourceData, meta interface{}) error {
 	yaml := d.Get("yaml_body").(string)
+	manifest, err := parseYaml(yaml)
+	if err != nil {
+		return fmt.Errorf("failed to parse kubernetes resource: %+v", err)
+	}
 
 	// Create a client to talk to the resource API based on the APIVersion and Kind
 	// defined in the YAML
-	client, rawObj, err := getRestClientFromYaml(yaml, meta.(*KubeProvider))
+	client, err := getRestClientFromUnstructured(manifest, meta.(*KubeProvider))
 	if err != nil {
 		return fmt.Errorf("failed to create kubernetes rest client for read of resource: %+v", err)
 	}
 
-	return resourceKubectlManifestReadUsingClient(d, meta, client, rawObj)
+	return resourceKubectlManifestReadUsingClient(d, meta, client, manifest)
 }
 
-func resourceKubectlManifestReadUsingClient(d *schema.ResourceData, meta interface{}, client dynamic.ResourceInterface, rawObj *meta_v1_unstruct.Unstructured) error {
+func resourceKubectlManifestReadUsingClient(d *schema.ResourceData, meta interface{}, client dynamic.ResourceInterface, manifest *UnstructuredManifest) error {
+
+	log.Printf("[DEBUG] %v fetch from kubernetes", manifest)
 
 	// Get the resource from Kubernetes
-	metaObjLive, err := client.Get(rawObj.GetName(), meta_v1.GetOptions{})
+	metaObjLive, err := client.Get(manifest.unstruct.GetName(), meta_v1.GetOptions{})
 	resourceGone := errors.IsGone(err) || errors.IsNotFound(err)
 	if resourceGone {
 		log.Printf("[WARN] kubernetes resource (%s) not found, removing from state", d.Id())
@@ -419,51 +461,57 @@ func resourceKubectlManifestReadUsingClient(d *schema.ResourceData, meta interfa
 	}
 
 	if err != nil {
-		return fmt.Errorf("failed to get resource '%v/%v' from kubernetes: %+v", rawObj.GetKind(), rawObj.GetName(), err)
+		return fmt.Errorf("%v failed to get resource from kubernetes: %+v", manifest, err)
 	}
 
 	if metaObjLive.GetUID() == "" {
-		return fmt.Errorf("failed to parse item and get UUID: %+v", metaObjLive)
+		return fmt.Errorf("%v failed to parse item and get UUID: %+v", manifest, metaObjLive)
 	}
 
 	// Capture the UID and Resource_version from the cluster at the current time
-	d.Set("live_uid", metaObjLive.GetUID())
-	d.Set("live_resource_version", metaObjLive.GetResourceVersion())
+	_ = d.Set("live_uid", metaObjLive.GetUID())
+	_ = d.Set("live_resource_version", metaObjLive.GetResourceVersion())
 
 	var ignoreFields []string = nil
 	ignoreFieldsRaw, hasIgnoreFields := d.GetOk("ignore_fields")
 	if hasIgnoreFields {
 		ignoreFields = expandStringList(ignoreFieldsRaw.([]interface{}))
 	}
-	comparisonOutput, err := compareMaps(rawObj.UnstructuredContent(), metaObjLive.UnstructuredContent(), ignoreFields)
+	comparisonOutput, err := compareMaps(manifest.unstruct.UnstructuredContent(), metaObjLive.UnstructuredContent(), ignoreFields)
 	if err != nil {
-		return err
+		return fmt.Errorf("%v failed to compare maps: %+v", manifest, err)
 	}
 
-	d.Set("live_manifest_incluster", comparisonOutput)
+	_ = d.Set("live_manifest_incluster", comparisonOutput)
 
 	return nil
 }
 
 func resourceKubectlManifestDelete(d *schema.ResourceData, meta interface{}) error {
 	yaml := d.Get("yaml_body").(string)
-
-	client, rawObj, err := getRestClientFromYaml(yaml, meta.(*KubeProvider))
+	manifest, err := parseYaml(yaml)
 	if err != nil {
-		return fmt.Errorf("failed to create kubernetes rest client for delete of resource: %+v", err)
+		return fmt.Errorf("failed to parse kubernetes resource: %+v", err)
 	}
 
-	metaObj := &meta_v1beta1.PartialObjectMetadata{}
+	log.Printf("[DEBUG] %v delete kubernetes resource:\n%s", manifest, yaml)
+
+	client, err := getRestClientFromUnstructured(manifest, meta.(*KubeProvider))
+	if err != nil {
+		return fmt.Errorf("%v failed to create kubernetes rest client for delete of resource: %+v", manifest, err)
+	}
+
+	log.Printf("[INFO] %s perform delete of manifest", manifest)
+
 	deletePropagationBackground := meta_v1.DeletePropagationBackground
-	err = client.Delete(rawObj.GetName(), &meta_v1.DeleteOptions{PropagationPolicy: &deletePropagationBackground})
+	err = client.Delete(manifest.unstruct.GetName(), &meta_v1.DeleteOptions{PropagationPolicy: &deletePropagationBackground})
 	resourceGone := errors.IsGone(err) || errors.IsNotFound(err)
 	if err != nil && !resourceGone {
-		return fmt.Errorf("failed to delete kubernetes resource '%s': %+v", metaObj.SelfLink, err)
+		return fmt.Errorf("%v failed to delete kubernetes resource: %+v", manifest, err)
 	}
 
 	// Success remove it from state
 	d.SetId("")
-
 	return nil
 }
 
@@ -471,7 +519,7 @@ func resourceKubectlManifestDelete(d *schema.ResourceData, meta interface{}) err
 // 1. UnMarshal YAML into map
 // 2. Marshal map into JSON
 // 3. UnMarshal JSON into the Unstructured type so we get some K8s checking
-func parseYaml(yaml string) (*meta_v1_unstruct.Unstructured, error) {
+func parseYaml(yaml string) (*UnstructuredManifest, error) {
 	rawYamlParsed := &map[string]interface{}{}
 	err := yamlParser.Unmarshal([]byte(yaml), rawYamlParsed)
 	if err != nil {
@@ -483,23 +531,21 @@ func parseYaml(yaml string) (*meta_v1_unstruct.Unstructured, error) {
 		return nil, err
 	}
 
-	unstrut := meta_v1_unstruct.Unstructured{}
-	err = unstrut.UnmarshalJSON(rawJSON)
+	unstruct := meta_v1_unstruct.Unstructured{}
+	err = unstruct.UnmarshalJSON(rawJSON)
 	if err != nil {
 		return nil, err
 	}
 
-	unstructContent := unstrut.UnstructuredContent()
-	log.Printf("[UNSTRUCT]: %+v\n", unstructContent)
+	manifest := &UnstructuredManifest{
+		unstruct: &unstruct,
+	}
 
-	return &unstrut, nil
+	log.Printf("[DEBUG] %s Unstructed YAML: %+v\n", manifest, manifest.unstruct.UnstructuredContent())
+	return manifest, nil
 }
 
-func getRestClientFromYaml(yaml string, provider *KubeProvider) (dynamic.ResourceInterface, *meta_v1_unstruct.Unstructured, error) {
-	unstrut, err := parseYaml(yaml)
-	if err != nil {
-		return nil, nil, err
-	}
+func getRestClientFromUnstructured(manifest *UnstructuredManifest, provider *KubeProvider) (dynamic.ResourceInterface, error) {
 
 	// Use the k8s Discovery service to find all valid APIs for this cluster
 	discoveryClient, _ := provider.ToDiscoveryClient()
@@ -509,13 +555,13 @@ func getRestClientFromYaml(yaml string, provider *KubeProvider) (dynamic.Resourc
 	// we'll try and continue in this condition as it's likely something we don't need
 	// and if it is the `checkAPIResourceIsPresent` check will fail and stop the process
 	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Validate that the APIVersion provided in the YAML is valid for this cluster
-	apiResource, exists := checkAPIResourceIsPresent(resources, *unstrut)
+	apiResource, exists := checkAPIResourceIsPresent(resources, *manifest.unstruct)
 	if !exists {
-		return nil, nil, fmt.Errorf("resource [%s/%s] isn't valid for cluster, check the APIVersion and Kind fields are valid", unstrut.GroupVersionKind().GroupVersion().String(), unstrut.GetKind())
+		return nil, fmt.Errorf("resource [%s/%s] isn't valid for cluster, check the APIVersion and Kind fields are valid", manifest.unstruct.GroupVersionKind().GroupVersion().String(), manifest.unstruct.GetKind())
 	}
 
 	resourceStruct := k8sschema.GroupVersionResource{Group: apiResource.Group, Version: apiResource.Version, Resource: apiResource.Name}
@@ -528,13 +574,13 @@ func getRestClientFromYaml(yaml string, provider *KubeProvider) (dynamic.Resourc
 	client := dynamic.NewForConfigOrDie(&provider.RestConfig).Resource(resourceStruct)
 
 	if apiResource.Namespaced {
-		if unstrut.GetNamespace() == "" {
-			unstrut.SetNamespace("default")
+		if manifest.unstruct.GetNamespace() == "" {
+			manifest.unstruct.SetNamespace("default")
 		}
-		return client.Namespace(unstrut.GetNamespace()), unstrut, nil
+		return client.Namespace(manifest.unstruct.GetNamespace()), nil
 	}
 
-	return client, unstrut, nil
+	return client, nil
 }
 
 // checkAPIResourceIsPresent Loops through a list of available APIResources and

@@ -271,7 +271,11 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 
 	// dereference config to create a shallow copy, allowing each func
 	// to manipulate the state without affecting another func
-	return &KubeProvider{k, *cfg, a}, nil
+	return &KubeProvider{
+		MainClientset:       k,
+		RestConfig:          *cfg,
+		AggregatorClientset: a,
+	}, nil
 }
 
 func tryLoadingConfigFile(d *schema.ResourceData) (*restclient.Config, error) {

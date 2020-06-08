@@ -159,3 +159,9 @@ type currentEnv struct {
 	ClientKeyData     string
 	ClusterCACertData string
 }
+
+func testAccPreCheck(t *testing.T) {
+	if v := os.Getenv("KUBECONFIG"); v == "" {
+		t.Fatal("KUBECONFIG must be set for acceptance tests")
+	}
+}
