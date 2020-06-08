@@ -183,7 +183,7 @@ func (p *KubeProvider) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, 
 	var httpCacheDir = filepath.Join(home, ".kube", "http-cache")
 
 	discoveryCacheDir := computeDiscoverCacheDir(filepath.Join(home, ".kube", "cache", "discovery"), p.RestConfig.Host)
-	return diskcached.NewCachedDiscoveryClientForConfig(&p.RestConfig, discoveryCacheDir, httpCacheDir, time.Duration(10*time.Second))
+	return diskcached.NewCachedDiscoveryClientForConfig(&p.RestConfig, discoveryCacheDir, httpCacheDir, time.Duration(10*time.Minute))
 }
 
 func (p *KubeProvider) ToRESTMapper() (meta.RESTMapper, error) {

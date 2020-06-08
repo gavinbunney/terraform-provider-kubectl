@@ -564,7 +564,9 @@ func getRestClientFromUnstructured(manifest *UnstructuredManifest, provider *Kub
 	doGetRestClientFromUnstructured := func(manifest *UnstructuredManifest, provider *KubeProvider) *Result {
 		// Use the k8s Discovery service to find all valid APIs for this cluster
 		discoveryClient, _ := provider.ToDiscoveryClient()
-		_, resources, err := discoveryClient.ServerGroupsAndResources()
+		var resources []*meta_v1.APIResourceList
+		var err error
+		_, resources, err = discoveryClient.ServerGroupsAndResources()
 
 		// There is a partial failure mode here where not all groups are returned `GroupDiscoveryFailedError`
 		// we'll try and continue in this condition as it's likely something we don't need
@@ -576,7 +578,20 @@ func getRestClientFromUnstructured(manifest *UnstructuredManifest, provider *Kub
 		// Validate that the APIVersion provided in the YAML is valid for this cluster
 		apiResource, exists := checkAPIResourceIsPresent(resources, *manifest.unstruct)
 		if !exists {
-			return &Result{nil, fmt.Errorf("resource [%s/%s] isn't valid for cluster, check the APIVersion and Kind fields are valid", manifest.unstruct.GroupVersionKind().GroupVersion().String(), manifest.unstruct.GetKind())}
+			// api not found, invalidate the cache and try again
+			// this handles the case when a CRD is being created by another kubectl_manifest resource run
+			discoveryClient.Invalidate()
+			_, resources, err = discoveryClient.ServerGroupsAndResources()
+
+			if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
+				return &Result{nil, err}
+			}
+
+			// check for resource again
+			apiResource, exists = checkAPIResourceIsPresent(resources, *manifest.unstruct)
+			if !exists {
+				return &Result{nil, fmt.Errorf("resource [%s/%s] isn't valid for cluster, check the APIVersion and Kind fields are valid", manifest.unstruct.GroupVersionKind().GroupVersion().String(), manifest.unstruct.GetKind())}
+			}
 		}
 
 		resourceStruct := k8sschema.GroupVersionResource{Group: apiResource.Group, Version: apiResource.Version, Resource: apiResource.Name}
