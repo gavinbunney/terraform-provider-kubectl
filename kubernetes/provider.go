@@ -9,8 +9,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	k8sresource "k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/discovery/cached/memory"
-	kubernetes "k8s.io/client-go/kubernetes"
+	diskcached "k8s.io/client-go/discovery/cached/disk"
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
@@ -19,7 +19,11 @@ import (
 	aggregator "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	"log"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
+	"time"
 )
 
 func Provider() terraform.ResourceProvider {
@@ -175,7 +179,11 @@ func (p *KubeProvider) ToRESTConfig() (*restclient.Config, error) {
 }
 
 func (p *KubeProvider) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
-	return memory.NewMemCacheClient(p.MainClientset.Discovery()), nil
+	home, _ := homedir.Dir()
+	var httpCacheDir = filepath.Join(home, ".kube", "http-cache")
+
+	discoveryCacheDir := computeDiscoverCacheDir(filepath.Join(home, ".kube", "cache", "discovery"), p.RestConfig.Host)
+	return diskcached.NewCachedDiscoveryClientForConfig(&p.RestConfig, discoveryCacheDir, httpCacheDir, time.Duration(10*time.Second))
 }
 
 func (p *KubeProvider) ToRESTMapper() (meta.RESTMapper, error) {
@@ -214,7 +222,7 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	}
 
 	cfg.QPS = 100.0
-	cfg.Burst = 500
+	cfg.Burst = 100
 
 	// Overriding with static configuration
 	cfg.UserAgent = fmt.Sprintf("HashiCorp/1.0 Terraform/%s", terraform.VersionString())
@@ -271,7 +279,11 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 
 	// dereference config to create a shallow copy, allowing each func
 	// to manipulate the state without affecting another func
-	return &KubeProvider{k, *cfg, a}, nil
+	return &KubeProvider{
+		MainClientset:       k,
+		RestConfig:          *cfg,
+		AggregatorClientset: a,
+	}, nil
 }
 
 func tryLoadingConfigFile(d *schema.ResourceData) (*restclient.Config, error) {
@@ -322,4 +334,16 @@ func tryLoadingConfigFile(d *schema.ResourceData) (*restclient.Config, error) {
 
 	log.Printf("[INFO] Successfully loaded config file (%s%s)", path, ctxSuffix)
 	return cfg, nil
+}
+
+// overlyCautiousIllegalFileCharacters matches characters that *might* not be supported.  Windows is really restrictive, so this is really restrictive
+var overlyCautiousIllegalFileCharacters = regexp.MustCompile(`[^(\w/\.)]`)
+
+// computeDiscoverCacheDir takes the parentDir and the host and comes up with a "usually non-colliding" name.
+func computeDiscoverCacheDir(parentDir, host string) string {
+	// strip the optional scheme from host if its there:
+	schemelessHost := strings.Replace(strings.Replace(host, "https://", "", 1), "http://", "", 1)
+	// now do a simple collapse of non-AZ09 characters.  Collisions are possible but unlikely.  Even if we do collide the problem is short lived
+	safeHost := overlyCautiousIllegalFileCharacters.ReplaceAllString(schemelessHost, "_")
+	return filepath.Join(parentDir, safeHost)
 }

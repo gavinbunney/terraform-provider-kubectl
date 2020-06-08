@@ -30,3 +30,38 @@ YAML
 		},
 	})
 }
+
+func TestAccKubectlUnknownNamespace(t *testing.T) {
+
+	config := `
+resource "kubectl_manifest" "test" {
+	yaml_body = <<EOT
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: name-here
+  namespace: this-doesnt-exist
+spec:
+  rules:
+  - http:
+      paths:
+      - path: "/testpath"
+        backend:
+          serviceName: test
+          servicePort: 80
+	EOT
+		}
+`
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckkubectlDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      config,
+				ExpectError: regexp.MustCompile("\"this-doesnt-exist\" not found"),
+			},
+		},
+	})
+}

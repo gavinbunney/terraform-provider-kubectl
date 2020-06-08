@@ -5,8 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hashicorp/hcl"
-	"github.com/hashicorp/terraform/config"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -52,49 +50,6 @@ func testAccCheckkubectlStatus(s *terraform.State, shouldExist bool) error {
 	}
 
 	return nil
-}
-
-func TestProviderConfigureWithExec(t *testing.T) {
-	if os.Getenv("TF_ACC") != "" {
-		t.Skip("The environment variable TF_ACC is set, and this test prevents acceptance tests" +
-			" from running as it alters environment variables - skipping")
-	}
-
-	resetEnv := unsetEnv(t)
-	defer resetEnv()
-
-	const conf string = `
-host                   = "testhost"
-cluster_ca_certificate = "testcert"
-
-exec {
-  api_version = "client.authentication.k8s.io/v1alpha1"
-  command     = "aws"
-
-  args = [
-    "eks",
-    "get-token",
-    "--cluster-name",
-    "testcluster",
-    "--region",
-    "us-east-1",
-  ]
-}`
-	var confmap map[string]interface{}
-	if err := hcl.Decode(&confmap, conf); err != nil {
-		t.Fatal(err)
-	}
-
-	c, err := config.NewRawConfig(confmap)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rc := terraform.NewResourceConfig(c)
-	p := Provider()
-	err = p.Configure(rc)
-	if err != nil {
-		t.Fatal(err)
-	}
 }
 
 func unsetEnv(t *testing.T) func() {
@@ -203,4 +158,10 @@ type currentEnv struct {
 	ClientCertData    string
 	ClientKeyData     string
 	ClusterCACertData string
+}
+
+func testAccPreCheck(t *testing.T) {
+	if v := os.Getenv("KUBECONFIG"); v == "" {
+		t.Fatal("KUBECONFIG must be set for acceptance tests")
+	}
 }
