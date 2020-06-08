@@ -50,7 +50,12 @@ func resourceKubectlManifest() *schema.Resource {
 			if kubectlApplyRetryCount > 0 {
 				retryConfig := backoff.WithMaxRetries(exponentialBackoffConfig, kubectlApplyRetryCount)
 				return backoff.Retry(func() error {
-					return resourceKubectlManifestApply(d, meta)
+					err := resourceKubectlManifestApply(d, meta)
+					if err != nil {
+						log.Printf("[ERROR] creating manifest failed: %+v", err)
+					}
+
+					return err
 				}, retryConfig)
 			} else {
 				return resourceKubectlManifestApply(d, meta)
@@ -66,7 +71,11 @@ func resourceKubectlManifest() *schema.Resource {
 			if kubectlApplyRetryCount > 0 {
 				retryConfig := backoff.WithMaxRetries(exponentialBackoffConfig, kubectlApplyRetryCount)
 				return backoff.Retry(func() error {
-					return resourceKubectlManifestApply(d, meta)
+					err := resourceKubectlManifestApply(d, meta)
+					if err != nil {
+						log.Printf("[ERROR] updating manifest failed: %+v", err)
+					}
+					return err
 				}, retryConfig)
 			} else {
 				return resourceKubectlManifestApply(d, meta)
@@ -547,40 +556,63 @@ func parseYaml(yaml string) (*UnstructuredManifest, error) {
 
 func getRestClientFromUnstructured(manifest *UnstructuredManifest, provider *KubeProvider) (dynamic.ResourceInterface, error) {
 
-	// Use the k8s Discovery service to find all valid APIs for this cluster
-	discoveryClient, _ := provider.ToDiscoveryClient()
-	_, resources, err := discoveryClient.ServerGroupsAndResources()
-
-	// There is a partial failure mode here where not all groups are returned `GroupDiscoveryFailedError`
-	// we'll try and continue in this condition as it's likely something we don't need
-	// and if it is the `checkAPIResourceIsPresent` check will fail and stop the process
-	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
-		return nil, err
+	type Result struct {
+		ResourceInterface dynamic.ResourceInterface
+		Error             error
 	}
 
-	// Validate that the APIVersion provided in the YAML is valid for this cluster
-	apiResource, exists := checkAPIResourceIsPresent(resources, *manifest.unstruct)
-	if !exists {
-		return nil, fmt.Errorf("resource [%s/%s] isn't valid for cluster, check the APIVersion and Kind fields are valid", manifest.unstruct.GroupVersionKind().GroupVersion().String(), manifest.unstruct.GetKind())
-	}
+	doGetRestClientFromUnstructured := func(manifest *UnstructuredManifest, provider *KubeProvider) *Result {
+		// Use the k8s Discovery service to find all valid APIs for this cluster
+		discoveryClient, _ := provider.ToDiscoveryClient()
+		_, resources, err := discoveryClient.ServerGroupsAndResources()
 
-	resourceStruct := k8sschema.GroupVersionResource{Group: apiResource.Group, Version: apiResource.Version, Resource: apiResource.Name}
-	// For core services (ServiceAccount, Service etc) the group is incorrectly parsed.
-	// "v1" should be empty group and "v1" for version
-	if resourceStruct.Group == "v1" && resourceStruct.Version == "" {
-		resourceStruct.Group = ""
-		resourceStruct.Version = "v1"
-	}
-	client := dynamic.NewForConfigOrDie(&provider.RestConfig).Resource(resourceStruct)
-
-	if apiResource.Namespaced {
-		if manifest.unstruct.GetNamespace() == "" {
-			manifest.unstruct.SetNamespace("default")
+		// There is a partial failure mode here where not all groups are returned `GroupDiscoveryFailedError`
+		// we'll try and continue in this condition as it's likely something we don't need
+		// and if it is the `checkAPIResourceIsPresent` check will fail and stop the process
+		if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
+			return &Result{nil, err}
 		}
-		return client.Namespace(manifest.unstruct.GetNamespace()), nil
+
+		// Validate that the APIVersion provided in the YAML is valid for this cluster
+		apiResource, exists := checkAPIResourceIsPresent(resources, *manifest.unstruct)
+		if !exists {
+			return &Result{nil, fmt.Errorf("resource [%s/%s] isn't valid for cluster, check the APIVersion and Kind fields are valid", manifest.unstruct.GroupVersionKind().GroupVersion().String(), manifest.unstruct.GetKind())}
+		}
+
+		resourceStruct := k8sschema.GroupVersionResource{Group: apiResource.Group, Version: apiResource.Version, Resource: apiResource.Name}
+		// For core services (ServiceAccount, Service etc) the group is incorrectly parsed.
+		// "v1" should be empty group and "v1" for version
+		if resourceStruct.Group == "v1" && resourceStruct.Version == "" {
+			resourceStruct.Group = ""
+			resourceStruct.Version = "v1"
+		}
+		client := dynamic.NewForConfigOrDie(&provider.RestConfig).Resource(resourceStruct)
+
+		if apiResource.Namespaced {
+			if manifest.unstruct.GetNamespace() == "" {
+				manifest.unstruct.SetNamespace("default")
+			}
+			return &Result{client.Namespace(manifest.unstruct.GetNamespace()), nil}
+		}
+
+		return &Result{client, nil}
 	}
 
-	return client, nil
+	discoveryWithTimeout := func(manifest *UnstructuredManifest, provider *KubeProvider) <-chan *Result {
+		ch := make(chan *Result)
+		go func() {
+			ch <- doGetRestClientFromUnstructured(manifest, provider)
+		}()
+		return ch
+	}
+
+	select {
+	case res := <-discoveryWithTimeout(manifest, provider):
+		return res.ResourceInterface, res.Error
+	case <-time.After(60 * time.Second):
+		log.Printf("[ERROR] %v timed out fetching resources from discovery client", manifest)
+		return nil, fmt.Errorf("%v timed out fetching resources from discovery client", manifest)
+	}
 }
 
 // checkAPIResourceIsPresent Loops through a list of available APIResources and
