@@ -121,23 +121,26 @@ func handleMaps(oValue, rValue interface{}, ignoreFields []string) ([]string, bo
 
 	// If we're looking at a nested map then recurse into it
 	if _, ok := oValue.(map[string]interface{}); ok {
-		newFields, err := getReturnedValueForOriginalFields(oValue.(map[string]interface{}), rValue.(map[string]interface{}), ignoreFields)
-		if err != nil {
-			return []string{}, false, err
+		if _, okRValue := rValue.(map[string]interface{}); okRValue {
+			newFields, err := getReturnedValueForOriginalFields(oValue.(map[string]interface{}), rValue.(map[string]interface{}), ignoreFields)
+			if err != nil {
+				return []string{}, false, err
+			}
+			fields = append(fields, newFields...)
+			return fields, true, nil
 		}
-		fields = append(fields, newFields...)
-		return fields, true, nil
 	}
 
 	// If it's a map[string]string convert then recurse
 	if _, ok := oValue.(map[string]string); ok {
-
-		newFields, err := getReturnedValueForOriginalFields(convertToMapStringInterface(oValue), convertToMapStringInterface(rValue), ignoreFields)
-		if err != nil {
-			return []string{}, false, err
+		if _, okRValue := rValue.(map[string]string); okRValue {
+			newFields, err := getReturnedValueForOriginalFields(convertToMapStringInterface(oValue), convertToMapStringInterface(rValue), ignoreFields)
+			if err != nil {
+				return []string{}, false, err
+			}
+			fields = append(fields, newFields...)
+			return fields, true, nil
 		}
-		fields = append(fields, newFields...)
-		return fields, true, nil
 	}
 
 	return []string{}, false, nil
