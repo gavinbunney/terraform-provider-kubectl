@@ -94,9 +94,9 @@ resource "kubectl_manifest" "test" {
 		CheckDestroy: testAccCheckkubectlDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config:      config,
+				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body", yaml_body + "\n"),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body", yaml_body+"\n"),
 					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body_parsed", `apiVersion: v1
 data: (sensitive value)
 kind: Secret
@@ -144,9 +144,9 @@ resource "kubectl_manifest" "test" {
 		CheckDestroy: testAccCheckkubectlDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config:      config,
+				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body", yaml_body + "\n"),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body", yaml_body+"\n"),
 					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body_parsed", `apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
@@ -194,9 +194,9 @@ resource "kubectl_manifest" "test" {
 		CheckDestroy: testAccCheckkubectlDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config:      config,
+				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body", yaml_body + "\n"),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body", yaml_body+"\n"),
 					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body_parsed", `apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
