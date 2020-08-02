@@ -36,13 +36,13 @@ matrix:
 before_deploy:
   - make build-binaries
 
-deploy:
-  provider: releases
-  skip_cleanup: true
-  api_key:
-    secure: C3jcmgMrQYoQD5JQ+3q3p5I2rwBstKKjfRKhY2SWKHc+J7g+Q51NGVMNYt3UUqK4tTsELYkrjATmoINKQF4KQmHiAnYmB9kyvTyHO/3mpGVMsmz9WujOJDN1/w2aPIYLGTKwj8wpzdWk7+MMLOTnsiZnYlhEgCVEzUAvY8GJK37kPqeZPdBLJXHMYJcg4xUaHJF9tdXesivD4pUqTQbQo1soXDk+yWIUAgRo366prUniwqMqD4lanjwT29MYdnCWTTFxvCWLhcFw8NQEhOq+qql5SJKYVjIiUQGmQT91CQ/4OHdMXalXZjKhinRKVsgA5/jydrlQcGmdCNufbcUwGPVwhhPLZrgvCOYZ0SXyetlVPTU9dh6tolUJiLI1pQB7RGnqLrAEXkQGyVTLfuK5+R22P+CwTxIEoU2bdMQDdh/R31Mnb3xbIOOSF2vG9RsXyTMmo1fI2//x08O/qlp+rWuXe7a+nInlkbZLTIC4VATeg2sYBWo52LcqYufgUsZDhz0YLRbntIkPaTeCoLKGMfIeVlsvRyjDCtE70UiClAb4RwemWw8nh64GnPCfCcCBecuC2670wp1bHHyskbI77KlTlQOZUVQ4e/QjLOroEDGXaKULWD6stel5iG1YL/M5mA+J6YbWw8s/9c6fyL6D1fqfbCamRYtvwzHYc4YtJsg=
-  file_glob: true
-  file: bin/*
-  on:
-    repo: gavinbunney/terraform-provider-kubectl
-    tags: true
+#deploy:
+#  provider: releases
+#  skip_cleanup: true
+#  api_key:
+#    secure: C3jcmgMrQYoQD5JQ+3q3p5I2rwBstKKjfRKhY2SWKHc+J7g+Q51NGVMNYt3UUqK4tTsELYkrjATmoINKQF4KQmHiAnYmB9kyvTyHO/3mpGVMsmz9WujOJDN1/w2aPIYLGTKwj8wpzdWk7+MMLOTnsiZnYlhEgCVEzUAvY8GJK37kPqeZPdBLJXHMYJcg4xUaHJF9tdXesivD4pUqTQbQo1soXDk+yWIUAgRo366prUniwqMqD4lanjwT29MYdnCWTTFxvCWLhcFw8NQEhOq+qql5SJKYVjIiUQGmQT91CQ/4OHdMXalXZjKhinRKVsgA5/jydrlQcGmdCNufbcUwGPVwhhPLZrgvCOYZ0SXyetlVPTU9dh6tolUJiLI1pQB7RGnqLrAEXkQGyVTLfuK5+R22P+CwTxIEoU2bdMQDdh/R31Mnb3xbIOOSF2vG9RsXyTMmo1fI2//x08O/qlp+rWuXe7a+nInlkbZLTIC4VATeg2sYBWo52LcqYufgUsZDhz0YLRbntIkPaTeCoLKGMfIeVlsvRyjDCtE70UiClAb4RwemWw8nh64GnPCfCcCBecuC2670wp1bHHyskbI77KlTlQOZUVQ4e/QjLOroEDGXaKULWD6stel5iG1YL/M5mA+J6YbWw8s/9c6fyL6D1fqfbCamRYtvwzHYc4YtJsg=
+#  file_glob: true
+#  file: bin/*
+#  on:
+#    repo: gavinbunney/terraform-provider-kubectl
+#    tags: true
