@@ -9,6 +9,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: "/"
     azure/frontdoor: enabled
+    azure/sensitive: "this is a big secret"
 spec:
   rules:
   - http:
@@ -18,4 +19,9 @@ spec:
           serviceName: test
           servicePort: 80
     YAML
+
+  sensitive_fields = [
+    "metadata.annotations.azure/sensitive",
+  ]
 }
+

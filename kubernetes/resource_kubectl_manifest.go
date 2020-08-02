@@ -184,6 +184,7 @@ metadata:
 				}
 
 				_ = d.Set("yaml_body", string(yamlParsed))
+				_ = d.Set("yaml_body_parsed", string(yamlParsed))
 
 				return []*schema.ResourceData{d}, nil
 			},
@@ -205,10 +206,42 @@ metadata:
 				return err
 			}
 
+			// set calculated fields based on parsed yaml values
 			_ = d.SetNew("api_version", parsedYaml.unstruct.GetAPIVersion())
 			_ = d.SetNew("kind", parsedYaml.unstruct.GetKind())
 			_ = d.SetNew("namespace", parsedYaml.unstruct.GetNamespace())
 			_ = d.SetNew("name", parsedYaml.unstruct.GetName())
+
+			// set the yaml_body_parsed field to provided value and obfuscate the yaml_body values manually
+			// this allows us to show a nice diff to the users with specific fields obfuscated, whilst storing the
+			// real value to apply in yaml_body
+			obfuscatedYaml, _ := parseYaml(d.Get("yaml_body").(string))
+			if obfuscatedYaml.unstruct.Object == nil {
+				obfuscatedYaml.unstruct.Object = make(map[string]interface{})
+			}
+
+			var sensitiveFields []string
+			sensitiveFieldsRaw, hasSensitiveFields := d.GetOk("sensitive_fields")
+			if hasSensitiveFields {
+				sensitiveFields = expandStringList(sensitiveFieldsRaw.([]interface{}))
+			} else if parsedYaml.unstruct.GetKind() == "Secret" && parsedYaml.unstruct.GetAPIVersion() == "v1" {
+				sensitiveFields = []string{"data"}
+			}
+
+			for _, s := range sensitiveFields {
+				fields := strings.Split(s, ".")
+				err = meta_v1_unstruct.SetNestedField(obfuscatedYaml.unstruct.Object, "(sensitive value)", fields...)
+				if err != nil {
+					return fmt.Errorf("failed to obfuscate sensitive field '%s': %+v\nNote: only map values are supported!", s, err)
+				}
+			}
+
+			obfuscatedYamlBytes, obfuscatedYamlBytesErr := yamlWriter.Marshal(obfuscatedYaml.unstruct.Object)
+			if obfuscatedYamlBytesErr != nil {
+				return fmt.Errorf("failed to serialized obfuscated yaml: %+v", obfuscatedYamlBytesErr)
+			}
+
+			_ = d.SetNew("yaml_body_parsed", string(obfuscatedYamlBytes))
 
 			// Get the UID of the K8s resource as it was when the `resourceKubectlManifestCreate` func completed.
 			createdAtUID := d.Get("uid").(string)
@@ -266,12 +299,14 @@ metadata:
 				Computed: true,
 			},
 			"yaml_incluster": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:      schema.TypeString,
+				Computed:  true,
+				Sensitive: true,
 			},
 			"live_manifest_incluster": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:      schema.TypeString,
+				Computed:  true,
+				Sensitive: true,
 			},
 			"api_version": {
 				Type:     schema.TypeString,
@@ -294,8 +329,20 @@ metadata:
 				ForceNew: true,
 			},
 			"yaml_body": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:      schema.TypeString,
+				Required:  true,
+				Sensitive: true,
+			},
+			"yaml_body_parsed": {
+				Type:        schema.TypeString,
+				Description: "Yaml body that is being applied, with sensitive values unobfuscated",
+				Computed:    true,
+			},
+			"sensitive_fields": {
+				Type:        schema.TypeList,
+				Elem:        &schema.Schema{Type: schema.TypeString},
+				Description: "List of yaml keys with sensitive values. Set these for fields which you want obfuscated in the yaml_body output",
+				Optional:    true,
 			},
 			"force_new": {
 				Type:        schema.TypeBool,

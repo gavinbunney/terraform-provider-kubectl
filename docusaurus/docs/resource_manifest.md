@@ -37,12 +37,14 @@ YAML
 ## Argument Reference
 
 * `yaml_body` - Required. YAML to apply to kubernetes.
+* `sensitive_fields` - Optional. List of fields (dot-syntax) which are sensitive and should be obfuscated in output. Defaults to `["data"]` for Secrets.
 * `force_new` - Optional. Forces delete & create of resources if the `yaml_body` changes. Default `false`.
 * `ignore_fields` - Optional. List of map fields to ignore when applying the manifest. See below for more details.
 * `wait_for_rollout` - Optional. Set this flag to wait or not for Deployments and APIService to complete rollout. Default `true`.
 
 ## Attribute Reference
 
+* `yaml_body_parsed` - Obfuscated version of `yaml_body`, with `sensitive_fields` hidden.
 * `api_version` - Extracted API Version from `yaml_body`.
 * `kind` - Extracted object kind from `yaml_body`.
 * `name` - Extracted object name from `yaml_body`.
@@ -53,6 +55,35 @@ YAML
 * `live_resource_version` - Current uuid from kubernetes.
 * `yaml_incluster` - Current yaml within kubernetes.
 * `live_manifest_incluster` - Current manifest within kubernetes.
+
+## Sensitive Fields
+
+You can obfuscate fields in the diff output by setting the `sensitive_fields` option. This allows you to hide arbitrary field content by suppressing the information in the diff.
+
+By default, this is set to `["data"]` for all `v1/Secret` manifests.
+
+```hcl
+resource "kubectl_manifest" "test" {
+    sensitive_fields = [
+        "metadata.annotations.my-secret-annotation"
+    ]
+    
+    yaml_body = <<YAML
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: istio-sidecar-injector
+  annotations:
+    my-secret-annotation: "this is very secret"
+webhooks:
+  - clientConfig:
+      caBundle: ""
+YAML
+}
+```
+
+> Note: Only Map values are supported to be made sensitive. If you need to make a value from a list (or sub-list) sensitive, you can set the high-level key as sensitive to suppress the entire tree output.
+
 
 ## Ignore Manifest Fields
 
