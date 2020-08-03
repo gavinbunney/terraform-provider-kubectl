@@ -26,9 +26,11 @@ builds:
         goarch: '386'
     binary: '{{ .ProjectName }}_v{{ .Version }}'
 archives:
-  - format: zip
+  - id: zip
+    format: zip
     name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
-  - format: binary
+  - id: binary
+    format: binary
     name_template: '{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}'
 checksum:
   name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
