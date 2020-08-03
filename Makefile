@@ -26,6 +26,9 @@ k3s-start:
 k3s-stop:
 	@bash scripts/stop-k3s.sh
 
+publish:
+	goreleaser release --rm-dist
+
 vet:
 	@echo "go vet ."
 	@go vet $$(go list ./... | grep -v vendor/) ; if [ $$? -eq 1 ]; then \
