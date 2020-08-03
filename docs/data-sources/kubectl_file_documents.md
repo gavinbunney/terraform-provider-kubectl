@@ -1,4 +1,4 @@
-## Data Source: kubectl_file_documents
+# Data Source: kubectl_file_documents
 
 This provider provides a `data` resource `kubectl_file_documents` to enable ease of splitting multi-document yaml content.
 

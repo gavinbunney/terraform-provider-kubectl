@@ -1,4 +1,4 @@
-## Resource: kubectl_manifest
+# Resource: kubectl_manifest
 
 Create a Kubernetes resource using raw YAML manifests.
 
