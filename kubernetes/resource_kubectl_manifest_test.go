@@ -217,3 +217,45 @@ spec:
 		},
 	})
 }
+
+func TestAccKubectlWithoutValidation(t *testing.T) {
+
+	yaml_body := `
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: name-here
+spec:
+  rules:
+  - http:
+      paths:
+      - path: "/testpath"
+        backend:
+          serviceName: test
+          servicePort: 80`
+
+	config := fmt.Sprintf(`
+resource "kubectl_manifest" "test" {
+    validate_schema = false
+
+	yaml_body = <<EOT
+%s
+	EOT
+		}
+`, yaml_body)
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckkubectlDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body", yaml_body+"\n"),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "validate_schema", "false"),
+				),
+			},
+		},
+	})
+}

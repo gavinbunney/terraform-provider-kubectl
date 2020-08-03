@@ -6,6 +6,7 @@ import (
 	"github.com/hashicorp/terraform/helper/resource"
 	"io/ioutil"
 	"k8s.io/cli-runtime/pkg/printers"
+	"k8s.io/kubectl/pkg/validation"
 	"os"
 	"time"
 
@@ -362,6 +363,12 @@ metadata:
 				Optional:    true,
 				Default:     true,
 			},
+			"validate_schema": {
+				Type:        schema.TypeBool,
+				Description: "Default to true (validate). Set this flag to not validate the yaml schema before appying.",
+				Optional:    true,
+				Default:     true,
+			},
 		},
 	}
 }
@@ -419,6 +426,10 @@ func resourceKubectlManifestApply(d *schema.ResourceData, meta interface{}) erro
 
 	applyOptions.ToPrinter = func(string) (printers.ResourcePrinter, error) {
 		return printers.NewDiscardingPrinter(), nil
+	}
+
+	if ! d.Get("validate_schema").(bool) {
+		applyOptions.Validator = validation.NullSchema{}
 	}
 
 	if manifest.hasNamespace() {
