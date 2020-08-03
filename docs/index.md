@@ -1,8 +1,3 @@
----
-id: provider
-title: Getting Started
----
-
 # Kubectl Provider
 
 This is a fork (of a fork!) of the original provider provided by [nabancard and lawrecncegripper](https://github.com/nabancard/terraform-provider-kubernetes-yaml).
@@ -21,8 +16,14 @@ The following one-liner script will fetch the latest provider version and downlo
 $ mkdir -p ~/.terraform.d/plugins && \
     curl -Ls https://api.github.com/repos/gavinbunney/terraform-provider-kubectl/releases/latest \
     | jq -r ".assets[] | select(.browser_download_url | contains(\"$(uname -s | tr A-Z a-z)\")) | select(.browser_download_url | contains(\"amd64\")) | .browser_download_url" \
-    | xargs -n 1 curl -Lo ~/.terraform.d/plugins/terraform-provider-kubectl && \
-    chmod +x ~/.terraform.d/plugins/terraform-provider-kubectl
+    | xargs -n 1 curl -Lo ~/.terraform.d/plugins/terraform-provider-kubectl.zip && \
+    pushd ~/.terraform.d/plugins/ && \
+    unzip ~/.terraform.d/plugins/terraform-provider-kubectl.zip -d terraform-provider-kubectl-tmp && \
+    mv terraform-provider-kubectl-tmp/terraform-provider-kubectl* . && \
+    chmod +x terraform-provider-kubectl* && \
+    rm -rf terraform-provider-kubectl-tmp && \
+    rm -rf terraform-provider-kubectl.zip && \
+    popd
 ```
 
 ### Install manually

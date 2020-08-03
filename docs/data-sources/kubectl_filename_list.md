@@ -1,3 +1,5 @@
+## Data Source: kubectl_filename_list
+
 This provider provides a `data` resource `kubectl_filename_list` to enable ease of working with directories of kubernetes manifests.
 
 ## Example Usage

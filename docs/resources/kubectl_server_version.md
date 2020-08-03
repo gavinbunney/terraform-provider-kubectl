@@ -1,3 +1,5 @@
+## Resource: kubectl_server_version
+
 This provider provides a resource `kubectl_server_version` to enable looking up of a kubernetes server version information.
 This is exactly the same as the `data` source `kubectl_server_version` but allows you to better chain dependencies, such that data sources are notoriously tricky for use `depends_on` with!
 This is particularily helpful if you need to match specific components with the kubernetes server version, e.g. `kube-proxy`.

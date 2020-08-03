@@ -1,3 +1,5 @@
+## Data Source: kubectl_path_documents
+
 This provider provides a `data` resource `kubectl_path_documents` to enable ease of splitting multi-document yaml content, from a collection of matching files.
 Think of is as a combination of both `kubectl_filename_list` and `kubectl_file_documents`
 
