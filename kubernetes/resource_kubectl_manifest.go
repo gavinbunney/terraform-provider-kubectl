@@ -732,7 +732,7 @@ func waitForDeploymentReplicasFunc(provider *KubeProvider, ns, name string) reso
 		if dply.Generation <= dply.Status.ObservedGeneration {
 			cond := GetDeploymentCondition(dply.Status, apps_v1.DeploymentProgressing)
 			if cond != nil && cond.Reason == TimedOutReason {
-				err := fmt.Errorf("Deployment exceeded its progress deadline: %v\nDeployment details:\n%v", cond.String(), dply.String())
+				err := fmt.Errorf("Deployment exceeded its progress deadline: %v", cond.String())
 				return resource.NonRetryableError(err)
 			}
 
