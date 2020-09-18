@@ -804,11 +804,14 @@ func getLiveManifestFilteredForUserProvidedOnlyWithIgnoredFields(ignoredFields [
 		// that is, don't add to the userKeys array unless the key still exists in the live manifest
 		if _, exists := flattenedLive[userKey]; exists {
 			userKeys = append(userKeys, userKey)
-			flattenedUser[userKey] = flattenedLive[userKey]
-		}
-
-		if userValue != flattenedLive[userKey] {
-			log.Printf("[TRACE] yaml drift detected for %s, was %s now %s", userKey, userValue, flattenedLive[userKey])
+			flattenedUser[userKey] = strings.TrimSpace(flattenedLive[userKey])
+			if strings.TrimSpace(userValue) != flattenedUser[userKey] {
+				log.Printf("[TRACE] yaml drift detected for %s, was:\n%s now:\n%s", userKey, userValue, flattenedLive[userKey])
+			}
+		} else {
+			if strings.TrimSpace(userValue) != "" {
+				log.Printf("[TRACE] yaml drift detected for %s, was %s now blank", userKey, userValue)
+			}
 		}
 	}
 
