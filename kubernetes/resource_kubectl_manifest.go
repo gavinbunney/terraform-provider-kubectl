@@ -3,11 +3,13 @@ package kubernetes
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/hashicorp/terraform/flatmap"
 	"github.com/hashicorp/terraform/helper/resource"
 	"io/ioutil"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/kubectl/pkg/validation"
 	"os"
+	"sort"
 	"time"
 
 	"log"
@@ -141,13 +143,7 @@ metadata:
 				_ = d.Set("resource_version", metaObjLive.GetResourceVersion())
 				_ = d.Set("live_resource_version", metaObjLive.GetResourceVersion())
 
-				var ignoreFields []string = nil
-				ignoreFieldsRaw, hasIgnoreFields := d.GetOk("ignore_fields")
-				if hasIgnoreFields {
-					ignoreFields = expandStringList(ignoreFieldsRaw.([]interface{}))
-				}
-
-				comparisonOutput, err := compareMaps(metaObjLive.UnstructuredContent(), metaObjLive.UnstructuredContent(), ignoreFields)
+				comparisonOutput, err := getLiveManifestFilteredForUserProvidedOnly(d, metaObjLive, metaObjLive)
 				if err != nil {
 					return []*schema.ResourceData{}, err
 				}
@@ -428,7 +424,7 @@ func resourceKubectlManifestApply(d *schema.ResourceData, meta interface{}) erro
 		return printers.NewDiscardingPrinter(), nil
 	}
 
-	if ! d.Get("validate_schema").(bool) {
+	if !d.Get("validate_schema").(bool) {
 		applyOptions.Validator = validation.NullSchema{}
 	}
 
@@ -461,18 +457,12 @@ func resourceKubectlManifestApply(d *schema.ResourceData, meta interface{}) erro
 	_ = d.Set("uid", response.GetUID())
 	_ = d.Set("resource_version", response.GetResourceVersion())
 
-	var ignoreFields []string = nil
-	ignoreFieldsRaw, hasIgnoreFields := d.GetOk("ignore_fields")
-	if hasIgnoreFields {
-		ignoreFields = expandStringList(ignoreFieldsRaw.([]interface{}))
-	}
-
-	comparisonString, err := compareMaps(manifest.unstruct.UnstructuredContent(), response.UnstructuredContent(), ignoreFields)
+	comparisonOutput, err := getLiveManifestFilteredForUserProvidedOnly(d, manifest.unstruct, response)
 	if err != nil {
 		return fmt.Errorf("%v failed to compare maps of manifest vs version in kubernetes: %+v", manifest, err)
 	}
 
-	_ = d.Set("yaml_incluster", comparisonString)
+	_ = d.Set("yaml_incluster", comparisonOutput)
 
 	if d.Get("wait_for_rollout").(bool) {
 		timeout := d.Timeout(schema.TimeoutCreate)
@@ -539,14 +529,9 @@ func resourceKubectlManifestReadUsingClient(d *schema.ResourceData, meta interfa
 	_ = d.Set("live_uid", metaObjLive.GetUID())
 	_ = d.Set("live_resource_version", metaObjLive.GetResourceVersion())
 
-	var ignoreFields []string = nil
-	ignoreFieldsRaw, hasIgnoreFields := d.GetOk("ignore_fields")
-	if hasIgnoreFields {
-		ignoreFields = expandStringList(ignoreFieldsRaw.([]interface{}))
-	}
-	comparisonOutput, err := compareMaps(manifest.unstruct.UnstructuredContent(), metaObjLive.UnstructuredContent(), ignoreFields)
+	comparisonOutput, err := getLiveManifestFilteredForUserProvidedOnly(d, manifest.unstruct, metaObjLive)
 	if err != nil {
-		return fmt.Errorf("%v failed to compare maps: %+v", manifest, err)
+		return fmt.Errorf("%v failed to compare maps of manifest vs version in kubernetes: %+v", manifest, err)
 	}
 
 	_ = d.Set("live_manifest_incluster", comparisonOutput)
@@ -783,4 +768,66 @@ func expandStringList(configured []interface{}) []string {
 		}
 	}
 	return vs
+}
+
+func getLiveManifestFilteredForUserProvidedOnly(d *schema.ResourceData, userProvided *meta_v1_unstruct.Unstructured, liveManifest *meta_v1_unstruct.Unstructured) (string, error) {
+	var ignoreFields []string = nil
+	ignoreFieldsRaw, hasIgnoreFields := d.GetOk("ignore_fields")
+	if hasIgnoreFields {
+		ignoreFields = expandStringList(ignoreFieldsRaw.([]interface{}))
+	}
+
+	return getLiveManifestFilteredForUserProvidedOnlyWithIgnoredFields(ignoreFields, userProvided, liveManifest)
+}
+
+func getLiveManifestFilteredForUserProvidedOnlyWithIgnoredFields(ignoredFields []string, userProvided *meta_v1_unstruct.Unstructured, liveManifest *meta_v1_unstruct.Unstructured) (string, error) {
+
+	flattenedUser := flatmap.Flatten(userProvided.Object)
+	flattenedLive := flatmap.Flatten(liveManifest.Object)
+
+	// remove any fields from the user provided set that we want to ignore
+	for _, field := range ignoredFields {
+		delete(flattenedUser, field)
+	}
+
+	// update the user provided flattened string with the live versions of the keys
+	// this implicitly excludes anything that the user didn't provide as it was added by kubernetes runtime (annotations/mutations etc)
+	userKeys := []string{}
+	for userKey, userValue := range flattenedUser {
+
+		// ignore any skipping fields that don't make sense for users to update
+		if _, exists := kubernetesControlFields[userKey]; exists {
+			continue
+		}
+
+		// only include the value if it exists in the live version
+		// that is, don't add to the userKeys array unless the key still exists in the live manifest
+		if _, exists := flattenedLive[userKey]; exists {
+			userKeys = append(userKeys, userKey)
+			flattenedUser[userKey] = flattenedLive[userKey]
+		}
+
+		if userValue != flattenedLive[userKey] {
+			log.Printf("[TRACE] yaml drift detected for %s, was %s now %s", userKey, userValue, flattenedLive[userKey])
+		}
+	}
+
+	sort.Strings(userKeys)
+	returnedValues := []string{}
+	for _, k := range userKeys {
+		returnedValues = append(returnedValues, fmt.Sprintf("%s=%s", k, flattenedUser[k]))
+	}
+
+	return strings.Join(returnedValues, ","), nil
+}
+
+var kubernetesControlFields = map[string]bool{
+	"status":            true,
+	"finalizers":        true,
+	"initializers":      true,
+	"ownerReferences":   true,
+	"creationTimestamp": true,
+	"generation":        true,
+	"resourceVersion":   true,
+	"uid":               true,
 }
