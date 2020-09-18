@@ -3,7 +3,7 @@ package kubernetes
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/hashicorp/terraform/flatmap"
+	"github.com/gavinbunney/terraform-provider-kubectl/flatten"
 	"github.com/hashicorp/terraform/helper/resource"
 	"io/ioutil"
 	"k8s.io/cli-runtime/pkg/printers"
@@ -782,8 +782,8 @@ func getLiveManifestFilteredForUserProvidedOnly(d *schema.ResourceData, userProv
 
 func getLiveManifestFilteredForUserProvidedOnlyWithIgnoredFields(ignoredFields []string, userProvided *meta_v1_unstruct.Unstructured, liveManifest *meta_v1_unstruct.Unstructured) (string, error) {
 
-	flattenedUser := flatmap.Flatten(userProvided.Object)
-	flattenedLive := flatmap.Flatten(liveManifest.Object)
+	flattenedUser := flatten.Flatten(userProvided.Object)
+	flattenedLive := flatten.Flatten(liveManifest.Object)
 
 	// remove any fields from the user provided set that we want to ignore
 	for _, field := range ignoredFields {
