@@ -793,6 +793,13 @@ func getLiveManifestFilteredForUserProvidedOnlyWithIgnoredFields(ignoredFields [
 	// remove any fields from the user provided set that we want to ignore
 	for _, field := range ignoredFields {
 		delete(flattenedUser, field)
+
+		// check for any nested fields to ignore
+		for k, _ := range flattenedUser {
+			if strings.HasPrefix(k, field+".") {
+				delete(flattenedUser, k)
+			}
+		}
 	}
 
 	// update the user provided flattened string with the live versions of the keys

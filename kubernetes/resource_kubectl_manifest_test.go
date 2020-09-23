@@ -324,6 +324,45 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 			ignored:        []string{"ignore.this"},
 		},
 		{
+			// Ensure ignored sub fields are skipped
+			description: "Simple map with string ignore nested fields",
+			userProvided: map[string]interface{}{
+				"test1": "test2",
+				"ignore": map[string]string{
+					"this": "5432",
+				},
+			},
+			liveManifest: map[string]interface{}{
+				"test1": "test2",
+				"ignore": map[string]string{
+					"this": "1245",
+				},
+			},
+			expectedString: "test1=test2",
+			ignored:        []string{"ignore"},
+		},
+		{
+			// Ensure ignored sub fields are skipped
+			description: "Simple map with string ignore highly nested fields",
+			userProvided: map[string]interface{}{
+				"test1": "test2",
+				"ignore": map[string]string{
+					"this": "5432",
+				},
+			},
+			liveManifest: map[string]interface{}{
+				"test1": "test2",
+				"ignore": map[string]interface{}{
+					"this": "1245",
+					"also": map[string]string{
+						"these": "9876",
+					},
+				},
+			},
+			expectedString: "test1=test2",
+			ignored:        []string{"ignore"},
+		},
+		{
 			// Ensure nested `map[string]string` are supported
 			description: "Map with nested map[string]string",
 			userProvided: map[string]interface{}{
