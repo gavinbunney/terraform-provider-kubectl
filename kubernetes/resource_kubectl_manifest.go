@@ -227,8 +227,8 @@ metadata:
 
 			for _, s := range sensitiveFields {
 				fields := strings.Split(s, ".")
-				_, fieldExits, err := meta_v1_unstruct.NestedFieldNoCopy(obfuscatedYaml.unstruct.Object, fields...)
-				if fieldExits {
+				_, fieldExists, err := meta_v1_unstruct.NestedFieldNoCopy(obfuscatedYaml.unstruct.Object, fields...)
+				if fieldExists {
 					err = meta_v1_unstruct.SetNestedField(obfuscatedYaml.unstruct.Object, "(sensitive value)", fields...)
 					if err != nil {
 						return fmt.Errorf("failed to obfuscate sensitive field '%s': %+v\nNote: only map values are supported!", s, err)
