@@ -204,8 +204,6 @@ kind: Ingress
 metadata:
   name: name-here
 spec:
-  field:
-    missing: (sensitive value)
   rules:
   - http:
       paths:
