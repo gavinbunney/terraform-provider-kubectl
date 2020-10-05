@@ -11,7 +11,9 @@ This fork adds :
 
 ## Provider Installation
 
-### Install latest version
+### Terraform 0.12
+
+#### Install latest version
 
 The following one-liner script will fetch the latest provider version and download it to your `~/.terraform.d/plugins` directory.
 
@@ -29,10 +31,27 @@ $ mkdir -p ~/.terraform.d/plugins && \
       popd
 ```
 
-### Install manually
+#### Install manually
 
 If you don't want to use the one-liner above, you can download a binary for your system from the [release page](https://github.com/gavinbunney/terraform-provider-kubectl/releases) and remove the `-os-arch` details so you're left with `terraform-provider-kubectl`.
 Use `chmod +x` to make it executable and then either place it at the root of your Terraform folder or in the Terraform plugin folder on your system. 
+
+### Terraform 0.13+
+
+The provider can be installed and managed automatically by Terraform. Sample `versions.tf` file :
+
+```hcl
+terraform {
+  required_version = ">= 0.13"
+
+  required_providers {
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = ">= 1.7.0"
+    }
+  }
+}
+```
 
 ## Provider Configuration
 
