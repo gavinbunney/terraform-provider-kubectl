@@ -51,8 +51,8 @@ $ mkdir -p ~/.terraform.d/plugins && \
 
 #### Install manually
 
-If you don't want to use the one-liner above, you can download a binary for your system from the [release page](https://github.com/gavinbunney/terraform-provider-kubectl/releases) and remove the `-os-arch` details so you're left with `terraform-provider-kubectl`.
-Use `chmod +x` to make it executable and then either place it at the root of your Terraform folder or in the Terraform plugin folder on your system. 
+If you don't want to use the one-liner above, you can download a binary for your system from the [release page](https://github.com/gavinbunney/terraform-provider-kubectl/releases), 
+then either place it at the root of your Terraform folder or in the Terraform plugin folder on your system. 
 
 ## Configuration
 
