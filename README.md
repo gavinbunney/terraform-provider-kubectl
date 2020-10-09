@@ -52,7 +52,7 @@ YAML
 }
 ```
 
-See [User Guide](https://gavinbunney.github.io/terraform-provider-kubectl) for details on all the provided data and resource types.
+See [User Guide](https://gavinbunney.github.io/terraform-provider-kubectl) for details on installation and all the provided data and resource types.
 
 ---
 
