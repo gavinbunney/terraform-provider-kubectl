@@ -10,7 +10,8 @@ This yaml object is then tracked and handles creation, updates and deleted seaml
 
 A set of helpful data resources to process directories of yaml files and inline templating is available.
 
-`terraform-provider-kubectl` has been used by many Kubernetes installations to completely manage the lifecycle of Kubernetes resources. 
+This `terraform-provider-kubectl` provider has been used by many large Kubernetes installations to completely
+manage the lifecycle of Kubernetes resources. 
 
 ## Installation
 
