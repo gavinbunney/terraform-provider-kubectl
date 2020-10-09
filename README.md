@@ -1,12 +1,16 @@
 # Kubernetes "kubectl" Provider 
 
-[![Build Status](https://travis-ci.org/gavinbunney/terraform-provider-kubectl.svg?branch=master)](https://travis-ci.org/gavinbunney/terraform-provider-kubectl) [![codecov](https://codecov.io/gh/gavinbunney/terraform-provider-kubectl/branch/master/graph/badge.svg)](https://codecov.io/gh/gavinbunney/terraform-provider-kubectl) [![user guide](https://img.shields.io/badge/-user%20guide-blue)](https://gavinbunney.github.io/terraform-provider-kubectl)
+[![Build Status](https://travis-ci.org/gavinbunney/terraform-provider-kubectl.svg?branch=master)](https://travis-ci.org/gavinbunney/terraform-provider-kubectl) [![codecov](https://codecov.io/gh/gavinbunney/terraform-provider-kubectl/branch/master/graph/badge.svg)](https://codecov.io/gh/gavinbunney/terraform-provider-kubectl) [![user guide](https://img.shields.io/badge/-user%20guide-blue)](https://registry.terraform.io/providers/gavinbunney/kubectl)
 
-This is a fork (of a fork!) of the original provider provided by [nabancard and lawrecncegripper](https://github.com/nabancard/terraform-provider-kubernetes-yaml).
+This provider is the best way of managing Kubernetes resources in Terraform, by allowing you to use the thing 
+Kubernetes loves best - yaml!
 
-This fork adds :
-1. Support for in-place updates of kubernetes resources
-2. Data resource to iterate over directories of manifests
+This core of this provider is the `kubectl_manifest` resource, allowing free-form yaml to be processed and applied against Kubernetes.
+This yaml object is then tracked and handles creation, updates and deleted seamlessly - including drift detection!
+
+A set of helpful data resources to process directories of yaml files and inline templating is available.
+
+`terraform-provider-kubectl` has been used by many Kubernetes installations to completely manage the lifecycle of Kubernetes resources. 
 
 ## Using the provider
 
@@ -52,7 +56,7 @@ YAML
 }
 ```
 
-See [User Guide](https://gavinbunney.github.io/terraform-provider-kubectl) for details on installation and all the provided data and resource types.
+See [User Guide](https://registry.terraform.io/providers/gavinbunney/kubectl/latest) for details on installation and all the provided data and resource types.
 
 ---
 
@@ -84,7 +88,7 @@ In order to test the provider, you can simply run `make test`.
 $ make test
 ```
 
-The provide uses MiniKube to run integration tests. These tests look for any `*.tf` files in the `_examples` folder and run an `plan`, `apply`, `refresh` and `plan` loop over each file. 
+The provider uses k3s to run integration tests. These tests look for any `*.tf` files in the `_examples` folder and run an `plan`, `apply`, `refresh` and `plan` loop over each file. 
 
 Inside each file the string `name-here` is replaced with a unique name during test execution. This is a simple string replace before the TF is applied to ensure that tests don't fail due to naming clashes. 
 
@@ -99,3 +103,7 @@ In order to run the full suite of Acceptance tests, run `make testacc`.
 ```sh
 $ make testacc
 ```
+
+### Inspiration
+
+Thanks to the original provider by [nabancard and lawrecncegripper](https://github.com/nabancard/terraform-provider-kubernetes-yaml) on the original base of this provider.

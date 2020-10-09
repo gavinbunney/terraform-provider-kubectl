@@ -61,11 +61,4 @@ test-compile:
 	fi
 	go test -c $(TEST) $(TESTARGS)
 
-website-serve:
-	@cd docusaurus/website && npm start
-
-website-publish:
-	@cd docusaurus/website && npm run build
-	@cd docusaurus/website && CURRENT_BRANCH=master USE_SSH=true npm run publish-gh-pages
-
-.PHONY: build test testacc vet fmt fmtcheck errcheck vendor-status test-compile build-binaries website-serve website-publish
+.PHONY: build test testacc vet fmt fmtcheck errcheck vendor-status test-compile build-binaries

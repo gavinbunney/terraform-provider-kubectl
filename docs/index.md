@@ -1,32 +1,55 @@
 # Kubectl Provider
 
-This is a fork (of a fork!) of the original provider provided by [nabancard and lawrecncegripper](https://github.com/nabancard/terraform-provider-kubernetes-yaml).
+This provider is the best way of managing Kubernetes resources in Terraform, by allowing you to use the thing 
+Kubernetes loves best - yaml!
 
-This fork adds :
-1. Support for *in-place* updates of kubernetes resources
-2. Data resource to iterate over directories of manifests
+This core of this provider is the `kubectl_manifest` resource, allowing free-form yaml to be processed and applied against Kubernetes.
+This yaml object is then tracked and handles creation, updates and deleted seamlessly - including drift detection!
+
+A set of helpful data resources to process directories of yaml files and inline templating is available.
+
+`terraform-provider-kubectl` has been used by many Kubernetes installations to completely manage the lifecycle of Kubernetes resources. 
 
 ## Installation
 
-### Install latest version
+### Terraform 0.13+
+
+The provider can be installed and managed automatically by Terraform. Sample `versions.tf` file :
+
+```hcl
+terraform {
+  required_version = ">= 0.13"
+
+  required_providers {
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = ">= 1.7.0"
+    }
+  }
+}
+```
+
+### Terraform 0.12
+
+#### Install latest version
 
 The following one-liner script will fetch the latest provider version and download it to your `~/.terraform.d/plugins` directory.
 
 ```bash
 $ mkdir -p ~/.terraform.d/plugins && \
-    curl -Ls https://api.github.com/repos/gavinbunney/terraform-provider-kubectl/releases/latest \
-    | jq -r ".assets[] | select(.browser_download_url | contains(\"$(uname -s | tr A-Z a-z)\")) | select(.browser_download_url | contains(\"amd64\")) | .browser_download_url" \
-    | xargs -n 1 curl -Lo ~/.terraform.d/plugins/terraform-provider-kubectl.zip && \
-    pushd ~/.terraform.d/plugins/ && \
-    unzip ~/.terraform.d/plugins/terraform-provider-kubectl.zip -d terraform-provider-kubectl-tmp && \
-    mv terraform-provider-kubectl-tmp/terraform-provider-kubectl* . && \
-    chmod +x terraform-provider-kubectl* && \
-    rm -rf terraform-provider-kubectl-tmp && \
-    rm -rf terraform-provider-kubectl.zip && \
-    popd
+      curl -Ls https://api.github.com/repos/gavinbunney/terraform-provider-kubectl/releases/latest \
+      | jq -r ".assets[] | select(.browser_download_url | contains(\"$(uname -s | tr A-Z a-z)\")) | select(.browser_download_url | contains(\"amd64\")) | .browser_download_url" \
+      | xargs -n 1 curl -Lo ~/.terraform.d/plugins/terraform-provider-kubectl.zip && \
+      pushd ~/.terraform.d/plugins/ && \
+      unzip ~/.terraform.d/plugins/terraform-provider-kubectl.zip -d terraform-provider-kubectl-tmp && \
+      mv terraform-provider-kubectl-tmp/terraform-provider-kubectl* . && \
+      chmod +x terraform-provider-kubectl* && \
+      rm -rf terraform-provider-kubectl-tmp && \
+      rm -rf terraform-provider-kubectl.zip && \
+      popd
 ```
 
-### Install manually
+#### Install manually
 
 If you don't want to use the one-liner above, you can download a binary for your system from the [release page](https://github.com/gavinbunney/terraform-provider-kubectl/releases) and remove the `-os-arch` details so you're left with `terraform-provider-kubectl`.
 Use `chmod +x` to make it executable and then either place it at the root of your Terraform folder or in the Terraform plugin folder on your system. 
