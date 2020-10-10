@@ -358,6 +358,12 @@ metadata:
 				Description: "List of yaml keys to ignore changes to. Set these for fields set by Operators or other processes in kubernetes and as such you don't want to update.",
 				Optional:    true,
 			},
+			"wait": {
+				Type:        schema.TypeBool,
+				Description: "Default to false (not waiting). Set this flag to wait or not for any deleted resources to be gone. This waits for finalizers.",
+				Optional:    true,
+				Default:     true,
+			},
 			"wait_for_rollout": {
 				Type:        schema.TypeBool,
 				Description: "Default to true (waiting). Set this flag to wait or not for Deployments and APIService to complete rollout",
@@ -560,8 +566,11 @@ func resourceKubectlManifestDelete(d *schema.ResourceData, meta interface{}) err
 
 	log.Printf("[INFO] %s perform delete of manifest", manifest)
 
-	deletePropagationBackground := meta_v1.DeletePropagationBackground
-	err = client.Delete(manifest.unstruct.GetName(), &meta_v1.DeleteOptions{PropagationPolicy: &deletePropagationBackground})
+	propagationPolicy := meta_v1.DeletePropagationBackground
+	if d.Get("wait").(bool) {
+		propagationPolicy = meta_v1.DeletePropagationForeground
+	}
+	err = client.Delete(manifest.unstruct.GetName(), &meta_v1.DeleteOptions{PropagationPolicy: &propagationPolicy})
 	resourceGone := errors.IsGone(err) || errors.IsNotFound(err)
 	if err != nil && !resourceGone {
 		return fmt.Errorf("%v failed to delete kubernetes resource: %+v", manifest, err)
