@@ -11,12 +11,12 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/zclconf/go-cty v1.2.1
 	gopkg.in/yaml.v2 v2.2.8
-	k8s.io/api v0.17.5
-	k8s.io/apimachinery v0.17.5
-	k8s.io/cli-runtime v0.17.5
-	k8s.io/client-go v0.17.5
-	k8s.io/kube-aggregator v0.17.5
-	k8s.io/kubectl v0.17.5
+	k8s.io/api v0.17.12
+	k8s.io/apimachinery v0.17.12
+	k8s.io/cli-runtime v0.17.12
+	k8s.io/client-go v0.17.12
+	k8s.io/kube-aggregator v0.17.12
+	k8s.io/kubectl v0.17.12
 	sigs.k8s.io/yaml v1.1.0
 )
 
