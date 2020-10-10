@@ -32,7 +32,15 @@ func dataSourceKubectlPathDocuments() *schema.Resource {
 				Type:         schema.TypeMap,
 				Optional:     true,
 				Default:      make(map[string]interface{}),
-				Description:  "variables to substitute",
+				Description:  "Variables to substitute",
+				ValidateFunc: validateVarsAttribute,
+			},
+			"sensitive_vars": {
+				Type:         schema.TypeMap,
+				Optional:     true,
+				Default:      make(map[string]interface{}),
+				Sensitive:    true,
+				Description:  "Sensitive variables to substitute, allowing for hiding sensitive variables in terraform output",
 				ValidateFunc: validateVarsAttribute,
 			},
 			"disable_template": {
@@ -48,6 +56,10 @@ func dataSourceKubectlPathDocuments() *schema.Resource {
 func dataSourceKubectlPathDocumentsRead(d *schema.ResourceData, m interface{}) error {
 	p := d.Get("pattern").(string)
 	vars := d.Get("vars").(map[string]interface{})
+	sensitiveVars := d.Get("sensitive_vars").(map[string]interface{})
+	for k, v := range sensitiveVars {
+		vars[k] = v
+	}
 	disableTemplate := d.Get("disable_template").(bool)
 
 	items, err := filepath.Glob(p)

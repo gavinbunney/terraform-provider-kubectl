@@ -101,6 +101,37 @@ data "kubectl_path_documents" "test" {
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "apiVersion: \"stable.example.com/v1\"\nkind: MyAwesomeCRD\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
 				),
 			},
+			{
+				Config: fmt.Sprintf(`
+data "kubectl_path_documents" "test" {
+	pattern = "%s"
+	sensitive_vars = {
+		the_kind = "MyAwesomeCRD"
+	}
+}
+`, path+"/single-templated.yaml"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "1"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "apiVersion: \"stable.example.com/v1\"\nkind: MyAwesomeCRD\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
+				),
+			},
+			{
+				Config: fmt.Sprintf(`
+data "kubectl_path_documents" "test" {
+	pattern = "%s"
+	vars = {
+		the_kind = "DefaultValue"
+	}
+	sensitive_vars = {
+		the_kind = "MyAwesomeCRD"
+	}
+}
+`, path+"/single-templated.yaml"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "1"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "apiVersion: \"stable.example.com/v1\"\nkind: MyAwesomeCRD\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
+				),
+			},
 		},
 	})
 }
