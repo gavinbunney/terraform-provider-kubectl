@@ -47,6 +47,10 @@ fmtcheck:
 errcheck:
 	@sh -c "'$(CURDIR)/scripts/errcheck.sh'"
 
+changelog:
+	@if [ "$(GITHUB_TOKEN)" == "" ]; then echo "[!] GITHUB_TOKEN environment variable is required but not set" && exit 1; fi;
+	@docker run --rm -v $(CURDIR):/usr/local/src/your-app -t ferrarimarco/github-changelog-generator:latest --user gavinbunney --project terraform-provider-kubectl --token ${GITHUB_TOKEN} --no-compare-link
+
 vendor-status:
 	@govendor status
 
@@ -61,4 +65,4 @@ test-compile:
 	fi
 	go test -c $(TEST) $(TESTARGS)
 
-.PHONY: build test testacc vet fmt fmtcheck errcheck vendor-status test-compile build-binaries
+.PHONY: build test testacc vet fmt fmtcheck errcheck vendor-status test-compile build-binaries changelog
