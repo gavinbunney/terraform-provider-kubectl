@@ -1,0 +1,12 @@
+%{ for namespace in split(",", namespaces) }
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${namespace}
+  labels:
+    name: ${namespace}
+%{ if hyperscale_enabled == "true" ~}
+    hyperscale: enabled
+%{ endif ~}
+%{ endfor }

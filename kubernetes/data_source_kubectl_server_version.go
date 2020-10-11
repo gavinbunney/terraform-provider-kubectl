@@ -3,7 +3,7 @@ package kubernetes
 import (
 	"crypto/sha256"
 	"fmt"
-	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"strings"
 )
 

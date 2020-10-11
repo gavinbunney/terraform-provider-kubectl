@@ -4,15 +4,20 @@ import (
 	"crypto/sha256"
 	"fmt"
 	hcl "github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/ext/tryfunc"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
-	"github.com/hashicorp/terraform/helper/schema"
-	tflang "github.com/hashicorp/terraform/lang"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform/lang/funcs"
+	ctyyaml "github.com/zclconf/go-cty-yaml"
 	"github.com/zclconf/go-cty/cty"
 	ctyconvert "github.com/zclconf/go-cty/cty/convert"
+	"github.com/zclconf/go-cty/cty/function"
+	"github.com/zclconf/go-cty/cty/function/stdlib"
 	"io/ioutil"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 )
 
 func dataSourceKubectlPathDocuments() *schema.Resource {
@@ -92,14 +97,14 @@ func dataSourceKubectlPathDocumentsRead(d *schema.ResourceData, m interface{}) e
 	}
 
 	d.SetId(fmt.Sprintf("%x", sha256.Sum256([]byte(strings.Join(allDocuments, "")))))
-	d.Set("documents", allDocuments)
+	_ = d.Set("documents", allDocuments)
 	return nil
 }
 
 // execute parses and executes a template using vars.
 func parseTemplate(s string, vars map[string]interface{}) (string, error) {
 	expr, diags := hclsyntax.ParseTemplate([]byte(s), "<template_file>", hcl.Pos{Line: 1, Column: 1})
-	if diags.HasErrors() {
+	if expr == nil || (diags != nil && diags.HasErrors()) {
 		return "", diags
 	}
 
@@ -122,15 +127,12 @@ func parseTemplate(s string, vars map[string]interface{}) (string, error) {
 	// have vendored in to this codebase, not from the version of Terraform
 	// the user is running, and so the set of functions won't always match
 	// between Terraform itself and this provider.
-	// (Over time users will hopefully transition over to Terraform's built-in
-	// templatefile function instead and we can phase this provider out.)
-	scope := &tflang.Scope{
-		BaseDir: ".",
-	}
-	ctx.Functions = scope.Functions()
+	// The provider sdk doesn't provide access to these, so we need to fetch into
+	// Terraform itself - not great, but only way to make our own "templating" feature
+	ctx.Functions = kubectlPathDocumentsFunctions()
 
 	result, diags := expr.Value(ctx)
-	if diags.HasErrors() {
+	if diags != nil && diags.HasErrors() {
 		return "", diags
 	}
 
@@ -161,4 +163,137 @@ func validateVarsAttribute(v interface{}, key string) (ws []string, es []error) 
 			key, strings.Join(badVars, ", ")))
 	}
 	return
+}
+
+var (
+	pathDocsFuncsLock                              = &sync.Mutex{}
+	pathDocsFuncs     map[string]function.Function = nil
+)
+
+// Functions returns the set of functions that should be used to when evaluating
+// expressions in the receiving scope.
+func kubectlPathDocumentsFunctions() map[string]function.Function {
+	pathDocsFuncsLock.Lock()
+	if pathDocsFuncs == nil {
+		// Some of our functions are just directly the cty stdlib functions.
+		// Others are implemented in the subdirectory "funcs" here in this
+		// repository. New functions should generally start out their lives
+		// in the "funcs" directory and potentially graduate to cty stdlib
+		// later if the functionality seems to be something domain-agnostic
+		// that would be useful to all applications using cty functions.
+		baseDir := "."
+		pathDocsFuncs = map[string]function.Function{
+			"abs":              stdlib.AbsoluteFunc,
+			"abspath":          funcs.AbsPathFunc,
+			"basename":         funcs.BasenameFunc,
+			"base64decode":     funcs.Base64DecodeFunc,
+			"base64encode":     funcs.Base64EncodeFunc,
+			"base64gzip":       funcs.Base64GzipFunc,
+			"base64sha256":     funcs.Base64Sha256Func,
+			"base64sha512":     funcs.Base64Sha512Func,
+			"bcrypt":           funcs.BcryptFunc,
+			"can":              tryfunc.CanFunc,
+			"ceil":             funcs.CeilFunc,
+			"chomp":            funcs.ChompFunc,
+			"cidrhost":         funcs.CidrHostFunc,
+			"cidrnetmask":      funcs.CidrNetmaskFunc,
+			"cidrsubnet":       funcs.CidrSubnetFunc,
+			"cidrsubnets":      funcs.CidrSubnetsFunc,
+			"coalesce":         funcs.CoalesceFunc,
+			"coalescelist":     funcs.CoalesceListFunc,
+			"compact":          funcs.CompactFunc,
+			"concat":           stdlib.ConcatFunc,
+			"contains":         funcs.ContainsFunc,
+			"csvdecode":        stdlib.CSVDecodeFunc,
+			"dirname":          funcs.DirnameFunc,
+			"distinct":         funcs.DistinctFunc,
+			"element":          funcs.ElementFunc,
+			"chunklist":        funcs.ChunklistFunc,
+			"file":             funcs.MakeFileFunc(baseDir, false),
+			"fileexists":       funcs.MakeFileExistsFunc(baseDir),
+			"fileset":          funcs.MakeFileSetFunc(baseDir),
+			"filebase64":       funcs.MakeFileFunc(baseDir, true),
+			"filebase64sha256": funcs.MakeFileBase64Sha256Func(baseDir),
+			"filebase64sha512": funcs.MakeFileBase64Sha512Func(baseDir),
+			"filemd5":          funcs.MakeFileMd5Func(baseDir),
+			"filesha1":         funcs.MakeFileSha1Func(baseDir),
+			"filesha256":       funcs.MakeFileSha256Func(baseDir),
+			"filesha512":       funcs.MakeFileSha512Func(baseDir),
+			"flatten":          funcs.FlattenFunc,
+			"floor":            funcs.FloorFunc,
+			"format":           stdlib.FormatFunc,
+			"formatdate":       stdlib.FormatDateFunc,
+			"formatlist":       stdlib.FormatListFunc,
+			"indent":           funcs.IndentFunc,
+			"index":            funcs.IndexFunc,
+			"join":             funcs.JoinFunc,
+			"jsondecode":       stdlib.JSONDecodeFunc,
+			"jsonencode":       stdlib.JSONEncodeFunc,
+			"keys":             funcs.KeysFunc,
+			"length":           funcs.LengthFunc,
+			"list":             funcs.ListFunc,
+			"log":              funcs.LogFunc,
+			"lookup":           funcs.LookupFunc,
+			"lower":            stdlib.LowerFunc,
+			"map":              funcs.MapFunc,
+			"matchkeys":        funcs.MatchkeysFunc,
+			"max":              stdlib.MaxFunc,
+			"md5":              funcs.Md5Func,
+			"merge":            funcs.MergeFunc,
+			"min":              stdlib.MinFunc,
+			"parseint":         funcs.ParseIntFunc,
+			"pathexpand":       funcs.PathExpandFunc,
+			"pow":              funcs.PowFunc,
+			"range":            stdlib.RangeFunc,
+			"regex":            stdlib.RegexFunc,
+			"regexall":         stdlib.RegexAllFunc,
+			"replace":          funcs.ReplaceFunc,
+			"reverse":          funcs.ReverseFunc,
+			"rsadecrypt":       funcs.RsaDecryptFunc,
+			"setintersection":  stdlib.SetIntersectionFunc,
+			"setproduct":       funcs.SetProductFunc,
+			"setsubtract":      stdlib.SetSubtractFunc,
+			"setunion":         stdlib.SetUnionFunc,
+			"sha1":             funcs.Sha1Func,
+			"sha256":           funcs.Sha256Func,
+			"sha512":           funcs.Sha512Func,
+			"signum":           funcs.SignumFunc,
+			"slice":            funcs.SliceFunc,
+			"sort":             funcs.SortFunc,
+			"split":            funcs.SplitFunc,
+			"strrev":           stdlib.ReverseFunc,
+			"substr":           stdlib.SubstrFunc,
+			"timestamp":        funcs.TimestampFunc,
+			"timeadd":          funcs.TimeAddFunc,
+			"title":            funcs.TitleFunc,
+			"tostring":         funcs.MakeToFunc(cty.String),
+			"tonumber":         funcs.MakeToFunc(cty.Number),
+			"tobool":           funcs.MakeToFunc(cty.Bool),
+			"toset":            funcs.MakeToFunc(cty.Set(cty.DynamicPseudoType)),
+			"tolist":           funcs.MakeToFunc(cty.List(cty.DynamicPseudoType)),
+			"tomap":            funcs.MakeToFunc(cty.Map(cty.DynamicPseudoType)),
+			"transpose":        funcs.TransposeFunc,
+			"trim":             funcs.TrimFunc,
+			"trimprefix":       funcs.TrimPrefixFunc,
+			"trimspace":        funcs.TrimSpaceFunc,
+			"trimsuffix":       funcs.TrimSuffixFunc,
+			"try":              tryfunc.TryFunc,
+			"upper":            stdlib.UpperFunc,
+			"urlencode":        funcs.URLEncodeFunc,
+			"uuid":             funcs.UUIDFunc,
+			"uuidv5":           funcs.UUIDV5Func,
+			"values":           funcs.ValuesFunc,
+			"yamldecode":       ctyyaml.YAMLDecodeFunc,
+			"yamlencode":       ctyyaml.YAMLEncodeFunc,
+			"zipmap":           funcs.ZipmapFunc,
+		}
+
+		pathDocsFuncs["templatefile"] = funcs.MakeTemplateFileFunc(baseDir, func() map[string]function.Function {
+			// The templatefile function prevents recursive calls to itself
+			// by copying this map and overwriting the "templatefile" entry.
+			return pathDocsFuncs
+		})
+	}
+	pathDocsFuncsLock.Unlock()
+	return pathDocsFuncs
 }

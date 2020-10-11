@@ -1,10 +1,11 @@
 package kubernetes
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/gavinbunney/terraform-provider-kubectl/flatten"
-	"github.com/hashicorp/terraform/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"io/ioutil"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/kubectl/pkg/validation"
@@ -22,7 +23,7 @@ import (
 	k8sdelete "k8s.io/kubectl/pkg/cmd/delete"
 
 	"github.com/cenkalti/backoff"
-	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/icza/dyno"
 
 	yamlParser "gopkg.in/yaml.v2"
@@ -186,7 +187,7 @@ metadata:
 				return []*schema.ResourceData{d}, nil
 			},
 		},
-		CustomizeDiff: func(d *schema.ResourceDiff, meta interface{}) error {
+		CustomizeDiff: func(context context.Context, d *schema.ResourceDiff, meta interface{}) error {
 
 			// trigger a recreation if the yaml-body has any pending changes
 			if d.Get("force_new").(bool) {

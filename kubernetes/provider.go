@@ -2,9 +2,10 @@ package kubernetes
 
 import (
 	"bytes"
+	"context"
 	"fmt"
-	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mitchellh/go-homedir"
 	"k8s.io/apimachinery/pkg/api/meta"
 	k8sresource "k8s.io/cli-runtime/pkg/resource"
@@ -26,7 +27,7 @@ import (
 	"time"
 )
 
-func Provider() terraform.ResourceProvider {
+func Provider() *schema.Provider {
 	p := &schema.Provider{
 		Schema: map[string]*schema.Schema{
 			"apply_retry_count": {
@@ -160,7 +161,7 @@ func Provider() terraform.ResourceProvider {
 		},
 	}
 
-	p.ConfigureFunc = func(d *schema.ResourceData) (interface{}, error) {
+	p.ConfigureContextFunc = func(context context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 		terraformVersion := p.TerraformVersion
 		if terraformVersion == "" {
 			// Terraform 0.12 introduced this field to the protocol
@@ -194,7 +195,7 @@ func (p *KubeProvider) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, 
 	var httpCacheDir = filepath.Join(home, ".kube", "http-cache")
 
 	discoveryCacheDir := computeDiscoverCacheDir(filepath.Join(home, ".kube", "cache", "discovery"), p.RestConfig.Host)
-	return diskcached.NewCachedDiscoveryClientForConfig(&p.RestConfig, discoveryCacheDir, httpCacheDir, time.Duration(10*time.Minute))
+	return diskcached.NewCachedDiscoveryClientForConfig(&p.RestConfig, discoveryCacheDir, httpCacheDir, 10*time.Minute)
 }
 
 func (p *KubeProvider) ToRESTMapper() (meta.RESTMapper, error) {
@@ -210,7 +211,7 @@ func (p *KubeProvider) ToRESTMapper() (meta.RESTMapper, error) {
 
 var kubectlApplyRetryCount uint64
 
-func providerConfigure(d *schema.ResourceData, terraformVersion string) (interface{}, error) {
+func providerConfigure(d *schema.ResourceData, terraformVersion string) (interface{}, diag.Diagnostics) {
 
 	var cfg *restclient.Config
 	var err error
@@ -226,7 +227,7 @@ func providerConfigure(d *schema.ResourceData, terraformVersion string) (interfa
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, diag.FromErr(err)
 	}
 	if cfg == nil {
 		cfg = &restclient.Config{}
@@ -273,19 +274,19 @@ func providerConfigure(d *schema.ResourceData, terraformVersion string) (interfa
 				exec.Env = append(exec.Env, clientcmdapi.ExecEnvVar{Name: kk, Value: vv.(string)})
 			}
 		} else {
-			return nil, fmt.Errorf("Failed to parse exec")
+			return nil, diag.FromErr(fmt.Errorf("failed to parse exec"))
 		}
 		cfg.ExecProvider = exec
 	}
 
 	k, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to configure: %s", err)
+		return nil, diag.FromErr(fmt.Errorf("failed to configure: %s", err))
 	}
 
 	a, err := aggregator.NewForConfig(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to configure: %s", err)
+		return nil, diag.FromErr(fmt.Errorf("failed to configure: %s", err))
 	}
 
 	// dereference config to create a shallow copy, allowing each func
@@ -340,7 +341,7 @@ func tryLoadingConfigFile(d *schema.ResourceData) (*restclient.Config, error) {
 			log.Printf("[INFO] Unable to load config file as it doesn't exist at %q", path)
 			return nil, nil
 		}
-		return nil, fmt.Errorf("Failed to load config (%s%s): %s", path, ctxSuffix, err)
+		return nil, fmt.Errorf("failed to load config (%s%s): %s", path, ctxSuffix, err)
 	}
 
 	log.Printf("[INFO] Successfully loaded config file (%s%s)", path, ctxSuffix)
