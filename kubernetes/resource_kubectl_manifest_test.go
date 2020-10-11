@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -69,6 +70,178 @@ spec:
 	})
 }
 
+func TestAccKubectlOverrideNamespace(t *testing.T) {
+
+	namespace := "dev-" + acctest.RandString(10)
+	yaml_body := `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysecret
+  namespace: prod 
+type: Opaque
+data:
+`
+
+	config := fmt.Sprintf(`
+resource "kubectl_manifest" "ns" {
+	yaml_body = <<EOT
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: %s
+    EOT
+}
+
+resource "kubectl_manifest" "test" {
+	depends_on = [kubectl_manifest.ns]
+    override_namespace = "%s"
+	yaml_body = <<EOT
+%s
+	EOT
+		}
+`, namespace, namespace, yaml_body)
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckkubectlDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "namespace", namespace),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "override_namespace", namespace),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body", yaml_body+"\n"),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body_parsed", fmt.Sprintf(`apiVersion: v1
+data: (sensitive value)
+kind: Secret
+metadata:
+  name: mysecret
+  namespace: %s
+type: Opaque
+`, namespace)),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_incluster", fmt.Sprintf(`apiVersion=v1,kind=Secret,metadata.name=mysecret,metadata.namespace=%s,type=Opaque`, namespace)),
+				),
+			},
+		},
+	})
+}
+
+func TestAccKubectlSetNamespace(t *testing.T) {
+
+	namespace := "dev-" + acctest.RandString(10)
+	yaml_body := `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysecret
+type: Opaque
+data:
+`
+
+	config := fmt.Sprintf(`
+resource "kubectl_manifest" "ns" {
+	yaml_body = <<EOT
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: %s
+    EOT
+}
+
+resource "kubectl_manifest" "test" {
+    depends_on = [kubectl_manifest.ns]
+    override_namespace = "%s"
+	yaml_body = <<EOT
+%s
+	EOT
+		}
+`, namespace, namespace, yaml_body)
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckkubectlDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "id", "/api/v1/namespaces/"+namespace+"/secrets/mysecret"),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "namespace", namespace),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "override_namespace", namespace),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body", yaml_body+"\n"),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body_parsed", fmt.Sprintf(`apiVersion: v1
+data: (sensitive value)
+kind: Secret
+metadata:
+  name: mysecret
+  namespace: %s
+type: Opaque
+`, namespace)),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_incluster", fmt.Sprintf(`apiVersion=v1,kind=Secret,metadata.name=mysecret,metadata.namespace=%s,type=Opaque`, namespace)),
+				),
+			},
+		},
+	})
+}
+
+func TestAccKubectlSetNamespace_nonnamespaced_resource(t *testing.T) {
+
+	namespace := "dev-" + acctest.RandString(10)
+	yaml_body := fmt.Sprintf(`
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mysuperrole-%s
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "watch", "list"]
+`, namespace)
+
+	config := fmt.Sprintf(`
+resource "kubectl_manifest" "test" {
+    override_namespace = "%s"
+	yaml_body = <<EOT
+%s
+	EOT
+		}
+`, namespace, yaml_body)
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckkubectlDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "namespace", namespace),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "override_namespace", namespace),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body", yaml_body+"\n"),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body_parsed", fmt.Sprintf(`apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mysuperrole-%s
+  namespace: %s
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - watch
+  - list
+`, namespace, namespace)),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_incluster", fmt.Sprintf(`apiVersion=rbac.authorization.k8s.io/v1,kind=ClusterRole,metadata.name=mysuperrole-%s,rules.#=1,rules.0.apiGroups.#=1,rules.0.apiGroups.0=,rules.0.resources.#=1,rules.0.resources.0=secrets,rules.0.verbs.#=3,rules.0.verbs.0=get,rules.0.verbs.1=watch,rules.0.verbs.2=list`, namespace)),
+				),
+			},
+		},
+	})
+}
+
 func TestAccKubectlSensitiveFields_secret(t *testing.T) {
 
 	yaml_body := `
@@ -76,6 +249,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: mysecret
+  namespace: default
 type: Opaque
 data:
   USER_NAME: YWRtaW4=
@@ -98,12 +272,15 @@ resource "kubectl_manifest" "test" {
 			{
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "namespace", "default"),
+					resource.TestCheckNoResourceAttr("kubectl_manifest.test", "override_namespace"),
 					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body", yaml_body+"\n"),
 					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body_parsed", `apiVersion: v1
 data: (sensitive value)
 kind: Secret
 metadata:
   name: mysecret
+  namespace: default
 type: Opaque
 `),
 				),
