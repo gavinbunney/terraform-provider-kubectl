@@ -1,19 +1,14 @@
 # Changelog
 
-## [Unreleased](https://github.com/gavinbunney/terraform-provider-kubectl/tree/HEAD)
-
-**Closed issues:**
-
-- Upgrade kubernetes apis to v1.17.12 [\#49](https://github.com/gavinbunney/terraform-provider-kubectl/issues/49)
-- Allow for an equivalent to `--wait=true` [\#31](https://github.com/gavinbunney/terraform-provider-kubectl/issues/31)
-
 ## [v1.8.0](https://github.com/gavinbunney/terraform-provider-kubectl/tree/v1.8.0) (2020-10-11)
 
 **Closed issues:**
 
+- Upgrade kubernetes apis to v1.17.12 [\#49](https://github.com/gavinbunney/terraform-provider-kubectl/issues/49)
 - Upgrade terraform provider sdk [\#48](https://github.com/gavinbunney/terraform-provider-kubectl/issues/48)
 - Add sensitive\_vars to kubectl\_path\_documents [\#47](https://github.com/gavinbunney/terraform-provider-kubectl/issues/47)
 - Releases have changed from binaries to zipped binaries [\#36](https://github.com/gavinbunney/terraform-provider-kubectl/issues/36)
+- Allow for an equivalent to `--wait=true` [\#31](https://github.com/gavinbunney/terraform-provider-kubectl/issues/31)
 
 ## [v1.7.2](https://github.com/gavinbunney/terraform-provider-kubectl/tree/v1.7.2) (2020-10-09)
 
@@ -41,6 +36,7 @@
 - Bump decompress from 4.2.0 to 4.2.1 in /docusaurus/website [\#42](https://github.com/gavinbunney/terraform-provider-kubectl/pull/42) ([dependabot[bot]](https://github.com/apps/dependabot))
 - fix an example for kubectl\_file\_document use [\#40](https://github.com/gavinbunney/terraform-provider-kubectl/pull/40) ([varuzam](https://github.com/varuzam))
 - Bump prismjs from 1.17.1 to 1.21.0 in /docusaurus/website [\#32](https://github.com/gavinbunney/terraform-provider-kubectl/pull/32) ([dependabot[bot]](https://github.com/apps/dependabot))
+- Bump lodash from 4.17.15 to 4.17.19 in /docusaurus/website [\#28](https://github.com/gavinbunney/terraform-provider-kubectl/pull/28) ([dependabot[bot]](https://github.com/apps/dependabot))
 
 ## [v1.6.2](https://github.com/gavinbunney/terraform-provider-kubectl/tree/v1.6.2) (2020-08-04)
 
@@ -63,10 +59,6 @@
 
 ## [v1.6.0](https://github.com/gavinbunney/terraform-provider-kubectl/tree/v1.6.0) (2020-08-03)
 
-**Merged pull requests:**
-
-- Bump lodash from 4.17.15 to 4.17.19 in /docusaurus/website [\#28](https://github.com/gavinbunney/terraform-provider-kubectl/pull/28) ([dependabot[bot]](https://github.com/apps/dependabot))
-
 ## [v1.5.1](https://github.com/gavinbunney/terraform-provider-kubectl/tree/v1.5.1) (2020-07-18)
 
 **Closed issues:**
@@ -76,7 +68,6 @@
 **Merged pull requests:**
 
 - Bump websocket-extensions from 0.1.3 to 0.1.4 in /docusaurus/website [\#20](https://github.com/gavinbunney/terraform-provider-kubectl/pull/20) ([dependabot[bot]](https://github.com/apps/dependabot))
-- Feature/add exec support [\#10](https://github.com/gavinbunney/terraform-provider-kubectl/pull/10) ([rinrailin](https://github.com/rinrailin))
 
 ## [v1.5.0](https://github.com/gavinbunney/terraform-provider-kubectl/tree/v1.5.0) (2020-06-08)
 
@@ -131,6 +122,10 @@
 
 - Add support of 'exec' argument [\#9](https://github.com/gavinbunney/terraform-provider-kubectl/issues/9)
 - Support for using yaml from internet [\#8](https://github.com/gavinbunney/terraform-provider-kubectl/issues/8)
+
+**Merged pull requests:**
+
+- Feature/add exec support [\#10](https://github.com/gavinbunney/terraform-provider-kubectl/pull/10) ([rinrailin](https://github.com/rinrailin))
 
 ## [v1.0.2](https://github.com/gavinbunney/terraform-provider-kubectl/tree/v1.0.2) (2020-01-07)
 
