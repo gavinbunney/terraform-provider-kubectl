@@ -27,7 +27,7 @@ import (
 )
 
 func Provider() terraform.ResourceProvider {
-	return &schema.Provider{
+	p := &schema.Provider{
 		Schema: map[string]*schema.Schema{
 			"apply_retry_count": {
 				Type:        schema.TypeInt,
@@ -158,8 +158,19 @@ func Provider() terraform.ResourceProvider {
 			"kubectl_manifest":       resourceKubectlManifest(),
 			"kubectl_server_version": resourceKubectlServerVersion(),
 		},
-		ConfigureFunc: providerConfigure,
 	}
+
+	p.ConfigureFunc = func(d *schema.ResourceData) (interface{}, error) {
+		terraformVersion := p.TerraformVersion
+		if terraformVersion == "" {
+			// Terraform 0.12 introduced this field to the protocol
+			// We can therefore assume that if it's missing it's 0.10 or 0.11
+			terraformVersion = "0.11+compatible"
+		}
+		return providerConfigure(d, terraformVersion)
+	}
+
+	return p
 }
 
 type KubeProvider struct {
@@ -199,7 +210,7 @@ func (p *KubeProvider) ToRESTMapper() (meta.RESTMapper, error) {
 
 var kubectlApplyRetryCount uint64
 
-func providerConfigure(d *schema.ResourceData) (interface{}, error) {
+func providerConfigure(d *schema.ResourceData, terraformVersion string) (interface{}, error) {
 
 	var cfg *restclient.Config
 	var err error
@@ -225,7 +236,7 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	cfg.Burst = 100
 
 	// Overriding with static configuration
-	cfg.UserAgent = fmt.Sprintf("HashiCorp/1.0 Terraform/%s", terraform.VersionString())
+	cfg.UserAgent = fmt.Sprintf("HashiCorp/1.0 Terraform/%s", terraformVersion)
 
 	if v, ok := d.GetOk("host"); ok {
 		cfg.Host = v.(string)
