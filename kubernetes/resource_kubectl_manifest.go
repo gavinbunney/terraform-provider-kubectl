@@ -376,7 +376,6 @@ metadata:
 				Type:        schema.TypeBool,
 				Description: "Default to false (not waiting). Set this flag to wait or not for any deleted resources to be gone. This waits for finalizers.",
 				Optional:    true,
-				Default:     true,
 			},
 			"wait_for_rollout": {
 				Type:        schema.TypeBool,
