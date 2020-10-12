@@ -204,6 +204,10 @@ metadata:
 				return err
 			}
 
+			if overrideNamespace, ok := d.GetOk("override_namespace"); ok {
+				parsedYaml.unstruct.SetNamespace(overrideNamespace.(string))
+			}
+
 			// set calculated fields based on parsed yaml values
 			_ = d.SetNew("api_version", parsedYaml.unstruct.GetAPIVersion())
 			_ = d.SetNew("kind", parsedYaml.unstruct.GetKind())
@@ -216,6 +220,10 @@ metadata:
 			obfuscatedYaml, _ := parseYaml(d.Get("yaml_body").(string))
 			if obfuscatedYaml.unstruct.Object == nil {
 				obfuscatedYaml.unstruct.Object = make(map[string]interface{})
+			}
+
+			if overrideNamespace, ok := d.GetOk("override_namespace"); ok {
+				obfuscatedYaml.unstruct.SetNamespace(overrideNamespace.(string))
 			}
 
 			var sensitiveFields []string
@@ -331,6 +339,11 @@ metadata:
 				Computed: true,
 				ForceNew: true,
 			},
+			"override_namespace": {
+				Type:        schema.TypeString,
+				Description: "Override the namespace to apply the kubernetes resource to",
+				Optional:    true,
+			},
 			"yaml_body": {
 				Type:      schema.TypeString,
 				Required:  true,
@@ -338,7 +351,7 @@ metadata:
 			},
 			"yaml_body_parsed": {
 				Type:        schema.TypeString,
-				Description: "Yaml body that is being applied, with sensitive values unobfuscated",
+				Description: "Yaml body that is being applied, with sensitive values obfuscated",
 				Computed:    true,
 			},
 			"sensitive_fields": {
@@ -406,6 +419,10 @@ func resourceKubectlManifestApply(d *schema.ResourceData, meta interface{}) erro
 		return fmt.Errorf("failed to parse kubernetes resource: %+v", err)
 	}
 
+	if overrideNamespace, ok := d.GetOk("override_namespace"); ok {
+		manifest.unstruct.SetNamespace(overrideNamespace.(string))
+	}
+
 	log.Printf("[DEBUG] %v apply kubernetes resource:\n%s", manifest, yaml)
 
 	// Create a client to talk to the resource API based on the APIVersion and Kind
@@ -416,6 +433,18 @@ func resourceKubectlManifestApply(d *schema.ResourceData, meta interface{}) erro
 	}
 
 	// Update the resource in Kubernetes, using a temp file
+	yamlJson, err := manifest.unstruct.MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("%v failed to convert object to json: %+v", manifest, err)
+	}
+
+	yamlParsed, err := yamlWriter.JSONToYAML(yamlJson)
+	if err != nil {
+		return fmt.Errorf("%v failed to convert json to yaml: %+v", manifest, err)
+	}
+
+	yaml = string(yamlParsed)
+
 	tmpfile, _ := ioutil.TempFile("", "*kubectl_manifest.yaml")
 	_, _ = tmpfile.Write([]byte(yaml))
 	_ = tmpfile.Close()
@@ -449,7 +478,7 @@ func resourceKubectlManifestApply(d *schema.ResourceData, meta interface{}) erro
 	err = applyOptions.Run()
 	_ = os.Remove(tmpfile.Name())
 	if err != nil {
-		return fmt.Errorf("%v failed to run apply options: %+v", manifest, err)
+		return fmt.Errorf("%v failed to run apply: %+v", manifest, err)
 	}
 
 	log.Printf("[INFO] %v manifest applied, fetch resource from kubernetes", manifest)
@@ -506,6 +535,10 @@ func resourceKubectlManifestRead(d *schema.ResourceData, meta interface{}) error
 		return fmt.Errorf("failed to parse kubernetes resource: %+v", err)
 	}
 
+	if overrideNamespace, ok := d.GetOk("override_namespace"); ok {
+		manifest.unstruct.SetNamespace(overrideNamespace.(string))
+	}
+
 	// Create a client to talk to the resource API based on the APIVersion and Kind
 	// defined in the YAML
 	client, err := getRestClientFromUnstructured(manifest, meta.(*KubeProvider))
@@ -556,6 +589,10 @@ func resourceKubectlManifestDelete(d *schema.ResourceData, meta interface{}) err
 	manifest, err := parseYaml(yaml)
 	if err != nil {
 		return fmt.Errorf("failed to parse kubernetes resource: %+v", err)
+	}
+
+	if overrideNamespace, ok := d.GetOk("override_namespace"); ok {
+		manifest.unstruct.SetNamespace(overrideNamespace.(string))
 	}
 
 	log.Printf("[DEBUG] %v delete kubernetes resource:\n%s", manifest, yaml)
