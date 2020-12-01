@@ -154,14 +154,14 @@ metadata:
 				if err != nil {
 					return nil, err
 				}
-				client, err := getRestClientFromUnstructured(manifest, meta.(*KubeProvider))
+				restClient := getRestClientFromUnstructured(manifest, meta.(*KubeProvider))
 
-				if err != nil {
-					return []*schema.ResourceData{}, fmt.Errorf("failed to create kubernetes rest client for import of resource: %s %s %s %+v %s %s", apiVersion, kind, name, err, yaml, manifest.unstruct)
+				if restClient.Error != nil {
+					return []*schema.ResourceData{}, fmt.Errorf("failed to create kubernetes rest client for import of resource: %s %s %s %+v %s %s", apiVersion, kind, name, restClient.Error, yaml, manifest.unstruct)
 				}
 
 				// Get the resource from Kubernetes
-				metaObjLive, err := client.Get(ctx, manifest.unstruct.GetName(), meta_v1.GetOptions{})
+				metaObjLive, err := restClient.ResourceInterface.Get(ctx, manifest.unstruct.GetName(), meta_v1.GetOptions{})
 				if err != nil {
 					return []*schema.ResourceData{}, fmt.Errorf("failed to get resource %s %s %s from kubernetes: %+v", apiVersion, kind, name, err)
 				}
@@ -459,9 +459,9 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 
 	// Create a client to talk to the resource API based on the APIVersion and Kind
 	// defined in the YAML
-	client, err := getRestClientFromUnstructured(manifest, meta.(*KubeProvider))
-	if err != nil {
-		return fmt.Errorf("%v failed to create kubernetes rest client for update of resource: %+v", manifest, err)
+	restClient := getRestClientFromUnstructured(manifest, meta.(*KubeProvider))
+	if restClient.Error != nil {
+		return fmt.Errorf("%v failed to create kubernetes rest client for update of resource: %+v", manifest, restClient.Error)
 	}
 
 	// Update the resource in Kubernetes, using a temp file
@@ -516,7 +516,7 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 	log.Printf("[INFO] %v manifest applied, fetch resource from kubernetes", manifest)
 
 	// get the resource from Kubernetes
-	response, err := client.Get(ctx, manifest.unstruct.GetName(), meta_v1.GetOptions{})
+	response, err := restClient.ResourceInterface.Get(ctx, manifest.unstruct.GetName(), meta_v1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("%v failed to fetch resource from kubernetes: %+v", manifest, err)
 	}
@@ -557,7 +557,7 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 		}
 	}
 
-	return resourceKubectlManifestReadUsingClient(ctx, d, meta, client, manifest)
+	return resourceKubectlManifestReadUsingClient(ctx, d, meta, restClient.ResourceInterface, manifest)
 }
 
 func resourceKubectlManifestRead(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
@@ -573,12 +573,18 @@ func resourceKubectlManifestRead(ctx context.Context, d *schema.ResourceData, me
 
 	// Create a client to talk to the resource API based on the APIVersion and Kind
 	// defined in the YAML
-	client, err := getRestClientFromUnstructured(manifest, meta.(*KubeProvider))
-	if err != nil {
-		return fmt.Errorf("failed to create kubernetes rest client for read of resource: %+v", err)
+	restClient := getRestClientFromUnstructured(manifest, meta.(*KubeProvider))
+	if restClient.Status == RestClientInvalidTypeError {
+		log.Printf("[WARN] kubernetes resource (%s) has an invalid type, removing from state", d.Id())
+		d.SetId("")
+		return nil
 	}
 
-	return resourceKubectlManifestReadUsingClient(ctx, d, meta, client, manifest)
+	if restClient.Error != nil {
+		return fmt.Errorf("failed to create kubernetes rest client for read of resource: %+v", restClient.Error)
+	}
+
+	return resourceKubectlManifestReadUsingClient(ctx, d, meta, restClient.ResourceInterface, manifest)
 }
 
 func resourceKubectlManifestReadUsingClient(ctx context.Context, d *schema.ResourceData, meta interface{}, client dynamic.ResourceInterface, manifest *UnstructuredManifest) error {
@@ -629,9 +635,9 @@ func resourceKubectlManifestDelete(ctx context.Context, d *schema.ResourceData, 
 
 	log.Printf("[DEBUG] %v delete kubernetes resource:\n%s", manifest, yaml)
 
-	client, err := getRestClientFromUnstructured(manifest, meta.(*KubeProvider))
-	if err != nil {
-		return fmt.Errorf("%v failed to create kubernetes rest client for delete of resource: %+v", manifest, err)
+	restClient := getRestClientFromUnstructured(manifest, meta.(*KubeProvider))
+	if restClient.Error != nil {
+		return fmt.Errorf("%v failed to create kubernetes rest client for delete of resource: %+v", manifest, restClient.Error)
 	}
 
 	log.Printf("[INFO] %s perform delete of manifest", manifest)
@@ -640,7 +646,7 @@ func resourceKubectlManifestDelete(ctx context.Context, d *schema.ResourceData, 
 	if d.Get("wait").(bool) {
 		propagationPolicy = meta_v1.DeletePropagationForeground
 	}
-	err = client.Delete(ctx, manifest.unstruct.GetName(), meta_v1.DeleteOptions{PropagationPolicy: &propagationPolicy})
+	err = restClient.ResourceInterface.Delete(ctx, manifest.unstruct.GetName(), meta_v1.DeleteOptions{PropagationPolicy: &propagationPolicy})
 	resourceGone := errors.IsGone(err) || errors.IsNotFound(err)
 	if err != nil && !resourceGone {
 		return fmt.Errorf("%v failed to delete kubernetes resource: %+v", manifest, err)
@@ -681,14 +687,47 @@ func parseYaml(yaml string) (*UnstructuredManifest, error) {
 	return manifest, nil
 }
 
-func getRestClientFromUnstructured(manifest *UnstructuredManifest, provider *KubeProvider) (dynamic.ResourceInterface, error) {
+type RestClientStatus int
 
-	type Result struct {
-		ResourceInterface dynamic.ResourceInterface
-		Error             error
+const (
+	RestClientOk = iota
+	RestClientGenericError
+	RestClientInvalidTypeError
+)
+
+type RestClientResult struct {
+	ResourceInterface dynamic.ResourceInterface
+	Error             error
+	Status            RestClientStatus
+}
+
+func RestClientResultSuccess(resourceInterface dynamic.ResourceInterface) *RestClientResult {
+	return &RestClientResult{
+		ResourceInterface: resourceInterface,
+		Error:             nil,
+		Status:            RestClientOk,
 	}
+}
 
-	doGetRestClientFromUnstructured := func(manifest *UnstructuredManifest, provider *KubeProvider) *Result {
+func RestClientResultFromErr(err error) *RestClientResult {
+	return &RestClientResult{
+		ResourceInterface: nil,
+		Error:             err,
+		Status:            RestClientGenericError,
+	}
+}
+
+func RestClientResultFromInvalidTypeErr(err error) *RestClientResult {
+	return &RestClientResult{
+		ResourceInterface: nil,
+		Error:             err,
+		Status:            RestClientInvalidTypeError,
+	}
+}
+
+func getRestClientFromUnstructured(manifest *UnstructuredManifest, provider *KubeProvider) *RestClientResult {
+
+	doGetRestClientFromUnstructured := func(manifest *UnstructuredManifest, provider *KubeProvider) *RestClientResult {
 		// Use the k8s Discovery service to find all valid APIs for this cluster
 		discoveryClient, _ := provider.ToDiscoveryClient()
 		var resources []*meta_v1.APIResourceList
@@ -699,7 +738,7 @@ func getRestClientFromUnstructured(manifest *UnstructuredManifest, provider *Kub
 		// we'll try and continue in this condition as it's likely something we don't need
 		// and if it is the `checkAPIResourceIsPresent` check will fail and stop the process
 		if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
-			return &Result{nil, err}
+			return RestClientResultFromErr(err)
 		}
 
 		// Validate that the APIVersion provided in the YAML is valid for this cluster
@@ -711,13 +750,13 @@ func getRestClientFromUnstructured(manifest *UnstructuredManifest, provider *Kub
 			_, resources, err = discoveryClient.ServerGroupsAndResources()
 
 			if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
-				return &Result{nil, err}
+				return RestClientResultFromErr(err)
 			}
 
 			// check for resource again
 			apiResource, exists = checkAPIResourceIsPresent(resources, *manifest.unstruct)
 			if !exists {
-				return &Result{nil, fmt.Errorf("resource [%s/%s] isn't valid for cluster, check the APIVersion and Kind fields are valid", manifest.unstruct.GroupVersionKind().GroupVersion().String(), manifest.unstruct.GetKind())}
+				return RestClientResultFromInvalidTypeErr(fmt.Errorf("resource [%s/%s] isn't valid for cluster, check the APIVersion and Kind fields are valid", manifest.unstruct.GroupVersionKind().GroupVersion().String(), manifest.unstruct.GetKind()))
 			}
 		}
 
@@ -734,26 +773,28 @@ func getRestClientFromUnstructured(manifest *UnstructuredManifest, provider *Kub
 			if manifest.unstruct.GetNamespace() == "" {
 				manifest.unstruct.SetNamespace("default")
 			}
-			return &Result{client.Namespace(manifest.unstruct.GetNamespace()), nil}
+			return RestClientResultSuccess(client.Namespace(manifest.unstruct.GetNamespace()))
 		}
 
-		return &Result{client, nil}
+		return RestClientResultSuccess(client)
 	}
 
-	discoveryWithTimeout := func(manifest *UnstructuredManifest, provider *KubeProvider) <-chan *Result {
-		ch := make(chan *Result)
+	discoveryWithTimeout := func(manifest *UnstructuredManifest, provider *KubeProvider) <-chan *RestClientResult {
+		ch := make(chan *RestClientResult)
 		go func() {
 			ch <- doGetRestClientFromUnstructured(manifest, provider)
 		}()
 		return ch
 	}
 
+	timeout := time.NewTimer(60 * time.Second)
+	defer timeout.Stop()
 	select {
 	case res := <-discoveryWithTimeout(manifest, provider):
-		return res.ResourceInterface, res.Error
-	case <-time.After(60 * time.Second):
+		return res
+	case <-timeout.C:
 		log.Printf("[ERROR] %v timed out fetching resources from discovery client", manifest)
-		return nil, fmt.Errorf("%v timed out fetching resources from discovery client", manifest)
+		return RestClientResultFromErr(fmt.Errorf("%v timed out fetching resources from discovery client", manifest))
 	}
 }
 
