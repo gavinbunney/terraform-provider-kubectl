@@ -1,14 +1,16 @@
 package kubernetes
 
 import (
+	"context"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func resourceKubectlServerVersion() *schema.Resource {
 	return &schema.Resource{
-		Create: dataSourceKubectlServerVersionRead,
-		Read:   dataSourceKubectlServerVersionRead,
-		Delete: resourceKubectlServerVersionDelete,
+		CreateContext: dataSourceKubectlServerVersionRead,
+		ReadContext:   dataSourceKubectlServerVersionRead,
+		DeleteContext: resourceKubectlServerVersionDelete,
 		Schema: map[string]*schema.Schema{
 			"triggers": {
 				Type:     schema.TypeMap,
@@ -51,7 +53,7 @@ func resourceKubectlServerVersion() *schema.Resource {
 	}
 }
 
-func resourceKubectlServerVersionDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceKubectlServerVersionDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	d.SetId("")
 	return nil
 }

@@ -1,8 +1,10 @@
 package kubernetes
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -12,7 +14,7 @@ import (
 
 func dataSourceKubectlFilenameList() *schema.Resource {
 	return &schema.Resource{
-		Read: dataSourceKubectlFilenameListRead,
+		ReadContext: dataSourceKubectlFilenameListRead,
 		Schema: map[string]*schema.Schema{
 			"pattern": &schema.Schema{
 				Type:     schema.TypeString,
@@ -32,11 +34,11 @@ func dataSourceKubectlFilenameList() *schema.Resource {
 	}
 }
 
-func dataSourceKubectlFilenameListRead(d *schema.ResourceData, m interface{}) error {
+func dataSourceKubectlFilenameListRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	p := d.Get("pattern").(string)
 	items, err := filepath.Glob(p)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	sort.Strings(items)
 	var elemhash string

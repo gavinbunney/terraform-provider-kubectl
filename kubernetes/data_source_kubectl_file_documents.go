@@ -1,14 +1,16 @@
 package kubernetes
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func dataSourceKubectlFileDocuments() *schema.Resource {
 	return &schema.Resource{
-		Read: dataSourceKubectlFileDocumentsRead,
+		ReadContext: dataSourceKubectlFileDocumentsRead,
 		Schema: map[string]*schema.Schema{
 			"content": &schema.Schema{
 				Type:     schema.TypeString,
@@ -23,11 +25,11 @@ func dataSourceKubectlFileDocuments() *schema.Resource {
 	}
 }
 
-func dataSourceKubectlFileDocumentsRead(d *schema.ResourceData, m interface{}) error {
+func dataSourceKubectlFileDocumentsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	content := d.Get("content").(string)
 	documents, err := splitMultiDocumentYAML(content)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	d.SetId(fmt.Sprintf("%x", sha256.Sum256([]byte(content))))

@@ -1,11 +1,13 @@
 package kubernetes
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	hcl "github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/ext/tryfunc"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform/lang/funcs"
 	ctyyaml "github.com/zclconf/go-cty-yaml"
@@ -22,7 +24,7 @@ import (
 
 func dataSourceKubectlPathDocuments() *schema.Resource {
 	return &schema.Resource{
-		Read: dataSourceKubectlPathDocumentsRead,
+		ReadContext: dataSourceKubectlPathDocumentsRead,
 		Schema: map[string]*schema.Schema{
 			"pattern": &schema.Schema{
 				Type:     schema.TypeString,
@@ -58,7 +60,7 @@ func dataSourceKubectlPathDocuments() *schema.Resource {
 	}
 }
 
-func dataSourceKubectlPathDocumentsRead(d *schema.ResourceData, m interface{}) error {
+func dataSourceKubectlPathDocumentsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	p := d.Get("pattern").(string)
 	vars := d.Get("vars").(map[string]interface{})
 	sensitiveVars := d.Get("sensitive_vars").(map[string]interface{})
@@ -69,14 +71,14 @@ func dataSourceKubectlPathDocumentsRead(d *schema.ResourceData, m interface{}) e
 
 	items, err := filepath.Glob(p)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	sort.Strings(items)
 	var allDocuments []string
 	for _, item := range items {
 		content, err := ioutil.ReadFile(item)
 		if err != nil {
-			return fmt.Errorf("error loading document from file: %v\n%v", item, err)
+			return diag.Errorf("error loading document from file: %v\n%v", item, err)
 		}
 
 		// before splitting the document, parse out any template details
@@ -84,13 +86,13 @@ func dataSourceKubectlPathDocumentsRead(d *schema.ResourceData, m interface{}) e
 		if !disableTemplate {
 			rendered, err = parseTemplate(rendered, vars)
 			if err != nil {
-				return fmt.Errorf("failed to render %v: %v", item, err)
+				return diag.Errorf("failed to render %v: %v", item, err)
 			}
 		}
 
 		documents, err := splitMultiDocumentYAML(rendered)
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 
 		allDocuments = append(allDocuments, documents...)

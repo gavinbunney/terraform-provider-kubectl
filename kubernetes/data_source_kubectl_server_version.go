@@ -1,15 +1,17 @@
 package kubernetes
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"strings"
 )
 
 func dataSourceKubectlServerVersion() *schema.Resource {
 	return &schema.Resource{
-		Read: dataSourceKubectlServerVersionRead,
+		ReadContext: dataSourceKubectlServerVersionRead,
 		Schema: map[string]*schema.Schema{
 			"version": &schema.Schema{
 				Type:     schema.TypeString,
@@ -47,17 +49,17 @@ func dataSourceKubectlServerVersion() *schema.Resource {
 	}
 }
 
-func dataSourceKubectlServerVersionRead(d *schema.ResourceData, meta interface{}) error {
+func dataSourceKubectlServerVersionRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	provider := meta.(*KubeProvider)
 	discoveryClient, err := provider.ToDiscoveryClient()
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	discoveryClient.Invalidate()
 	serverVersion, err := discoveryClient.ServerVersion()
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	serverSemver := strings.Split(serverVersion.String(), ".")

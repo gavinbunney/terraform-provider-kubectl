@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gavinbunney/terraform-provider-kubectl/flatten"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"io/ioutil"
 	"k8s.io/cli-runtime/pkg/printers"
@@ -46,50 +47,82 @@ const (
 func resourceKubectlManifest() *schema.Resource {
 
 	return &schema.Resource{
-		Create: func(d *schema.ResourceData, meta interface{}) error {
+		CreateContext: func(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 			exponentialBackoffConfig := backoff.NewExponentialBackOff()
 			exponentialBackoffConfig.InitialInterval = 3 * time.Second
 			exponentialBackoffConfig.MaxInterval = 30 * time.Second
 
 			if kubectlApplyRetryCount > 0 {
 				retryConfig := backoff.WithMaxRetries(exponentialBackoffConfig, kubectlApplyRetryCount)
-				return backoff.Retry(func() error {
-					err := resourceKubectlManifestApply(d, meta)
+				retryErr := backoff.Retry(func() error {
+					err := resourceKubectlManifestApply(ctx, d, meta)
 					if err != nil {
 						log.Printf("[ERROR] creating manifest failed: %+v", err)
 					}
 
 					return err
 				}, retryConfig)
+
+				if retryErr != nil {
+					return diag.FromErr(retryErr)
+				}
+
+				return nil
 			} else {
-				return resourceKubectlManifestApply(d, meta)
+				if applyErr := resourceKubectlManifestApply(ctx, d, meta); applyErr != nil {
+					return diag.FromErr(applyErr)
+				}
+
+				return nil
 			}
 		},
-		Read:   resourceKubectlManifestRead,
-		Delete: resourceKubectlManifestDelete,
-		Update: func(d *schema.ResourceData, meta interface{}) error {
+		ReadContext: func(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+			if err := resourceKubectlManifestRead(ctx, d, meta); err != nil {
+				return diag.FromErr(err)
+			}
+
+			return nil
+		},
+		DeleteContext: func(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+			if err := resourceKubectlManifestDelete(ctx, d, meta); err != nil {
+				return diag.FromErr(err)
+			}
+
+			return nil
+		},
+		UpdateContext: func(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 			exponentialBackoffConfig := backoff.NewExponentialBackOff()
 			exponentialBackoffConfig.InitialInterval = 3 * time.Second
 			exponentialBackoffConfig.MaxInterval = 30 * time.Second
 
 			if kubectlApplyRetryCount > 0 {
 				retryConfig := backoff.WithMaxRetries(exponentialBackoffConfig, kubectlApplyRetryCount)
-				return backoff.Retry(func() error {
-					err := resourceKubectlManifestApply(d, meta)
+				retryErr := backoff.Retry(func() error {
+					err := resourceKubectlManifestApply(ctx, d, meta)
 					if err != nil {
 						log.Printf("[ERROR] updating manifest failed: %+v", err)
 					}
 					return err
 				}, retryConfig)
+
+				if retryErr != nil {
+					return diag.FromErr(retryErr)
+				}
+
+				return nil
 			} else {
-				return resourceKubectlManifestApply(d, meta)
+				if applyErr := resourceKubectlManifestApply(ctx, d, meta); applyErr != nil {
+					return diag.FromErr(applyErr)
+				}
+
+				return nil
 			}
 		},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
 		},
 		Importer: &schema.ResourceImporter{
-			State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+			StateContext: func(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 				idParts := strings.Split(d.Id(), "//")
 				if len(idParts) != 3 && len(idParts) != 4 {
 					return []*schema.ResourceData{}, fmt.Errorf("expected ID in format apiVersion//kind//name//namespace, received: %s", d.Id())
@@ -128,7 +161,7 @@ metadata:
 				}
 
 				// Get the resource from Kubernetes
-				metaObjLive, err := client.Get(manifest.unstruct.GetName(), meta_v1.GetOptions{})
+				metaObjLive, err := client.Get(ctx, manifest.unstruct.GetName(), meta_v1.GetOptions{})
 				if err != nil {
 					return []*schema.ResourceData{}, fmt.Errorf("failed to get resource %s %s %s from kubernetes: %+v", apiVersion, kind, name, err)
 				}
@@ -410,7 +443,7 @@ func (m *UnstructuredManifest) String() string {
 	return m.unstruct.GetName()
 }
 
-func resourceKubectlManifestApply(d *schema.ResourceData, meta interface{}) error {
+func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
 
 	yaml := d.Get("yaml_body").(string)
 	manifest, err := parseYaml(yaml)
@@ -483,7 +516,7 @@ func resourceKubectlManifestApply(d *schema.ResourceData, meta interface{}) erro
 	log.Printf("[INFO] %v manifest applied, fetch resource from kubernetes", manifest)
 
 	// get the resource from Kubernetes
-	response, err := client.Get(manifest.unstruct.GetName(), meta_v1.GetOptions{})
+	response, err := client.Get(ctx, manifest.unstruct.GetName(), meta_v1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("%v failed to fetch resource from kubernetes: %+v", manifest, err)
 	}
@@ -509,25 +542,25 @@ func resourceKubectlManifestApply(d *schema.ResourceData, meta interface{}) erro
 
 		if manifest.unstruct.GetKind() == "Deployment" {
 			log.Printf("[INFO] %v waiting for deployment rollout for %vmin", manifest, timeout.Minutes())
-			err = resource.Retry(timeout,
-				waitForDeploymentReplicasFunc(meta.(*KubeProvider), manifest.unstruct.GetNamespace(), manifest.unstruct.GetName()))
+			err = resource.RetryContext(ctx, timeout,
+				waitForDeploymentReplicasFunc(ctx, meta.(*KubeProvider), manifest.unstruct.GetNamespace(), manifest.unstruct.GetName()))
 			if err != nil {
 				return err
 			}
 		} else if manifest.unstruct.GetKind() == "APIService" && manifest.unstruct.GetAPIVersion() == "apiregistration.k8s.io/v1" {
 			log.Printf("[INFO] %v waiting for APIService rollout for %vmin", manifest, timeout.Minutes())
-			err = resource.Retry(timeout,
-				waitForAPIServiceAvailableFunc(meta.(*KubeProvider), manifest.unstruct.GetName()))
+			err = resource.RetryContext(ctx, timeout,
+				waitForAPIServiceAvailableFunc(ctx, meta.(*KubeProvider), manifest.unstruct.GetName()))
 			if err != nil {
 				return err
 			}
 		}
 	}
 
-	return resourceKubectlManifestReadUsingClient(d, meta, client, manifest)
+	return resourceKubectlManifestReadUsingClient(ctx, d, meta, client, manifest)
 }
 
-func resourceKubectlManifestRead(d *schema.ResourceData, meta interface{}) error {
+func resourceKubectlManifestRead(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
 	yaml := d.Get("yaml_body").(string)
 	manifest, err := parseYaml(yaml)
 	if err != nil {
@@ -545,15 +578,15 @@ func resourceKubectlManifestRead(d *schema.ResourceData, meta interface{}) error
 		return fmt.Errorf("failed to create kubernetes rest client for read of resource: %+v", err)
 	}
 
-	return resourceKubectlManifestReadUsingClient(d, meta, client, manifest)
+	return resourceKubectlManifestReadUsingClient(ctx, d, meta, client, manifest)
 }
 
-func resourceKubectlManifestReadUsingClient(d *schema.ResourceData, meta interface{}, client dynamic.ResourceInterface, manifest *UnstructuredManifest) error {
+func resourceKubectlManifestReadUsingClient(ctx context.Context, d *schema.ResourceData, meta interface{}, client dynamic.ResourceInterface, manifest *UnstructuredManifest) error {
 
 	log.Printf("[DEBUG] %v fetch from kubernetes", manifest)
 
 	// Get the resource from Kubernetes
-	metaObjLive, err := client.Get(manifest.unstruct.GetName(), meta_v1.GetOptions{})
+	metaObjLive, err := client.Get(ctx, manifest.unstruct.GetName(), meta_v1.GetOptions{})
 	resourceGone := errors.IsGone(err) || errors.IsNotFound(err)
 	if resourceGone {
 		log.Printf("[WARN] kubernetes resource (%s) not found, removing from state", d.Id())
@@ -583,7 +616,7 @@ func resourceKubectlManifestReadUsingClient(d *schema.ResourceData, meta interfa
 	return nil
 }
 
-func resourceKubectlManifestDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceKubectlManifestDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
 	yaml := d.Get("yaml_body").(string)
 	manifest, err := parseYaml(yaml)
 	if err != nil {
@@ -607,7 +640,7 @@ func resourceKubectlManifestDelete(d *schema.ResourceData, meta interface{}) err
 	if d.Get("wait").(bool) {
 		propagationPolicy = meta_v1.DeletePropagationForeground
 	}
-	err = client.Delete(manifest.unstruct.GetName(), &meta_v1.DeleteOptions{PropagationPolicy: &propagationPolicy})
+	err = client.Delete(ctx, manifest.unstruct.GetName(), meta_v1.DeleteOptions{PropagationPolicy: &propagationPolicy})
 	resourceGone := errors.IsGone(err) || errors.IsNotFound(err)
 	if err != nil && !resourceGone {
 		return fmt.Errorf("%v failed to delete kubernetes resource: %+v", manifest, err)
@@ -756,11 +789,11 @@ func GetDeploymentCondition(status apps_v1.DeploymentStatus, condType apps_v1.De
 	return nil
 }
 
-func waitForDeploymentReplicasFunc(provider *KubeProvider, ns, name string) resource.RetryFunc {
+func waitForDeploymentReplicasFunc(ctx context.Context, provider *KubeProvider, ns, name string) resource.RetryFunc {
 	return func() *resource.RetryError {
 
 		// Query the deployment to get a status update.
-		dply, err := provider.MainClientset.AppsV1().Deployments(ns).Get(name, meta_v1.GetOptions{})
+		dply, err := provider.MainClientset.AppsV1().Deployments(ns).Get(ctx, name, meta_v1.GetOptions{})
 		if err != nil {
 			return resource.NonRetryableError(err)
 		}
@@ -790,10 +823,10 @@ func waitForDeploymentReplicasFunc(provider *KubeProvider, ns, name string) reso
 	}
 }
 
-func waitForAPIServiceAvailableFunc(provider *KubeProvider, name string) resource.RetryFunc {
+func waitForAPIServiceAvailableFunc(ctx context.Context, provider *KubeProvider, name string) resource.RetryFunc {
 	return func() *resource.RetryError {
 
-		apiService, err := provider.AggregatorClientset.ApiregistrationV1().APIServices().Get(name, meta_v1.GetOptions{})
+		apiService, err := provider.AggregatorClientset.ApiregistrationV1().APIServices().Get(ctx, name, meta_v1.GetOptions{})
 		if err != nil {
 			return resource.NonRetryableError(err)
 		}

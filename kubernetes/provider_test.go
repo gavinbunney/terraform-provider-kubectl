@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -42,7 +43,7 @@ func testAccCheckkubectlStatus(s *terraform.State, shouldExist bool) error {
 			continue
 		}
 
-		content, err := provider.MainClientset.RESTClient().Get().AbsPath(rs.Primary.ID).DoRaw()
+		content, err := provider.MainClientset.RESTClient().Get().AbsPath(rs.Primary.ID).DoRaw(context.TODO())
 		if (errors.IsNotFound(err) || errors.IsGone(err)) && shouldExist {
 			return fmt.Errorf("Failed to find resource, likely a failure to create occured: %+v %v", err, string(content))
 		}
