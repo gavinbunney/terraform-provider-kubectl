@@ -11,12 +11,6 @@ import (
 )
 
 func main() {
-	plugin.Serve(&plugin.ServeOpts{
-		GRPCProviderFunc: func() tfprotov5.ProviderServer {
-			return schema.NewGRPCProviderServer(kubernetes.Provider())
-		},
-	})
-
 	opts := &plugin.ServeOpts{}
 	grpcProviderFunc := func() tfprotov5.ProviderServer {
 		return schema.NewGRPCProviderServer(kubernetes.Provider())
