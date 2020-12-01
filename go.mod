@@ -12,7 +12,6 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/zclconf/go-cty v1.2.1
 	github.com/zclconf/go-cty-yaml v1.0.1
-	gonum.org/v1/netlib v0.0.0-20190331212654-76723241ea4e // indirect
 	gopkg.in/yaml.v2 v2.2.8
 	k8s.io/api v0.18.12
 	k8s.io/apimachinery v0.18.12
