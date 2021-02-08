@@ -185,8 +185,18 @@ metadata:
 				_ = d.Set("yaml_incluster", comparisonOutput)
 				_ = d.Set("live_manifest_incluster", comparisonOutput)
 
+				// get selfLink or generate (for Kubernetes 1.20+)
+				selfLink := metaObjLive.GetSelfLink()
+				if len(selfLink) == 0 {
+					selfLink = generateSelfLink(
+						metaObjLive.GetAPIVersion(),
+						metaObjLive.GetNamespace(),
+						metaObjLive.GetKind(),
+						metaObjLive.GetName())
+				}
+
 				// set fields captured normally during creation/updates
-				d.SetId(metaObjLive.GetSelfLink())
+				d.SetId(selfLink)
 				_ = d.Set("api_version", metaObjLive.GetAPIVersion())
 				_ = d.Set("kind", metaObjLive.GetKind())
 				_ = d.Set("namespace", metaObjLive.GetNamespace())
@@ -521,7 +531,17 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 		return fmt.Errorf("%v failed to fetch resource from kubernetes: %+v", manifest, err)
 	}
 
-	d.SetId(response.GetSelfLink())
+	// get selfLink or generate (for Kubernetes 1.20+)
+	selfLink := response.GetSelfLink()
+	if len(selfLink) == 0 {
+		selfLink = generateSelfLink(
+			response.GetAPIVersion(),
+			response.GetNamespace(),
+			response.GetKind(),
+			response.GetName())
+	}
+
+	d.SetId(selfLink)
 	log.Printf("[DEBUG] %v fetched successfully, set id to: %v", manifest, d.Id())
 
 	// Capture the UID and Resource_version at time of update
@@ -965,4 +985,33 @@ var kubernetesControlFields = map[string]bool{
 	"generation":        true,
 	"resourceVersion":   true,
 	"uid":               true,
+}
+
+// generateSelfLink creates a selfLink of the form:
+//     "/apis/<apiVersion>/namespaces/<namespace>/<kind>s/<name>"
+//
+// The selfLink attribute is not available in Kubernetes 1.20+ so we need
+// to generate a consistent, unique ID for our Terraform resources.
+func generateSelfLink(apiVersion, namespace, kind, name string) string {
+	var b strings.Builder
+	b.WriteString("/apis")
+	if len(apiVersion) != 0 {
+		fmt.Fprintf(&b, "/%s", apiVersion)
+	}
+	if len(namespace) != 0 {
+		fmt.Fprintf(&b, "/namespaces/%s", namespace)
+	}
+	if len(kind) != 0 {
+		var suffix string
+		if strings.HasSuffix(kind, "s") {
+			suffix = "es"
+		} else {
+			suffix = "s"
+		}
+		fmt.Fprintf(&b, "/%s%s", strings.ToLower(kind), suffix)
+	}
+	if len(name) != 0 {
+		fmt.Fprintf(&b, "/%s", name)
+	}
+	return b.String()
 }
