@@ -25,6 +25,7 @@ func visit(files *[]string) filepath.WalkFunc {
 }
 
 func TestAcckubectlYaml(t *testing.T) {
+	_ = os.Setenv("KUBECTL_PROVIDER_APPLY_RETRY_COUNT", "5")
 	var files []string
 	root := "../_examples"
 	err := filepath.Walk(root, visit(&files))

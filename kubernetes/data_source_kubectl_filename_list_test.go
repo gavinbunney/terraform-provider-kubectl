@@ -15,9 +15,8 @@ func TestAccKubectlDataSourceFilenameList_basic(t *testing.T) {
 			{
 				Config: testAccKubernetesDataSourceFilenameListConfig_basic(path + "/*"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.kubectl_filename_list.test", "matches.#", "2"),
-					resource.TestCheckResourceAttr("data.kubectl_filename_list.test", "matches.0", path+"/basic_crd.tf"),
-					resource.TestCheckResourceAttr("data.kubectl_filename_list.test", "matches.1", path+"/couchbase.tf"),
+					resource.TestCheckResourceAttr("data.kubectl_filename_list.test", "matches.#", "1"),
+					resource.TestCheckResourceAttr("data.kubectl_filename_list.test", "matches.0", path+"/couchbase.tf"),
 				),
 			},
 		},

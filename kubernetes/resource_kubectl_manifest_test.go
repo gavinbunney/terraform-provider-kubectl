@@ -786,11 +786,13 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 func TestGenerateSelfLink(t *testing.T) {
 	// general case
 	link := generateSelfLink("v1", "ns", "kind", "name")
-	assert.Equal(t, link, "/apis/v1/namespaces/ns/kinds/name")
+	assert.Equal(t, link, "/api/v1/namespaces/ns/kinds/name")
 	// no-namespace case
 	link = generateSelfLink("v1", "", "kind", "name")
-	assert.Equal(t, link, "/apis/v1/kinds/name")
+	assert.Equal(t, link, "/api/v1/kinds/name")
 	// plural kind adds 'es'
 	link = generateSelfLink("v1", "ns", "kinds", "name")
-	assert.Equal(t, link, "/apis/v1/namespaces/ns/kindses/name")
+	assert.Equal(t, link, "/api/v1/namespaces/ns/kindses/name")
+	link = generateSelfLink("apps/v1", "ns", "Deployment", "name")
+	assert.Equal(t, link, "/apis/apps/v1/namespaces/ns/deployments/name")
 }

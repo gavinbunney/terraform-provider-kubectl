@@ -994,7 +994,15 @@ var kubernetesControlFields = map[string]bool{
 // to generate a consistent, unique ID for our Terraform resources.
 func generateSelfLink(apiVersion, namespace, kind, name string) string {
 	var b strings.Builder
-	b.WriteString("/apis")
+
+	// for any v1 api served objects, they used to be served from /api
+	// all others are served from /apis
+	if apiVersion == "v1" {
+		b.WriteString("/api")
+	} else {
+		b.WriteString("/apis")
+	}
+
 	if len(apiVersion) != 0 {
 		fmt.Fprintf(&b, "/%s", apiVersion)
 	}
