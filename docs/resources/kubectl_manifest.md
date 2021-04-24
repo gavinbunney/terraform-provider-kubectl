@@ -30,6 +30,7 @@ spec:
           serviceName: test
           servicePort: 80
 YAML
+}
 ```
 
 > Note: When the kind is a Deployment, this provider will wait for the deployment to be rolled out automatically for you!
