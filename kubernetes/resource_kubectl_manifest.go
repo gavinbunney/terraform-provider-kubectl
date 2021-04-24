@@ -22,6 +22,8 @@ import (
 	apiregistration "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"k8s.io/kubectl/pkg/cmd/apply"
 	k8sdelete "k8s.io/kubectl/pkg/cmd/delete"
+	"k8s.io/kubectl/pkg/cmd/replace"
+	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 
 	"github.com/cenkalti/backoff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -55,12 +57,19 @@ func resourceKubectlManifest() *schema.Resource {
 			if kubectlApplyRetryCount > 0 {
 				retryConfig := backoff.WithMaxRetries(exponentialBackoffConfig, kubectlApplyRetryCount)
 				retryErr := backoff.Retry(func() error {
-					err := resourceKubectlManifestApply(ctx, d, meta)
-					if err != nil {
-						log.Printf("[ERROR] creating manifest failed: %+v", err)
+					if d.Get("replace").(bool) {
+						err := resourceKubectlManifestReplace(ctx, d, meta)
+						if err != nil {
+							log.Printf("[ERROR] creating manifest failed: %+v", err)
+						}
+						return err
+					} else {
+						err := resourceKubectlManifestApply(ctx, d, meta)
+						if err != nil {
+							log.Printf("[ERROR] creating manifest failed: %+v", err)
+						}
+						return err
 					}
-
-					return err
 				}, retryConfig)
 
 				if retryErr != nil {
@@ -69,8 +78,14 @@ func resourceKubectlManifest() *schema.Resource {
 
 				return nil
 			} else {
-				if applyErr := resourceKubectlManifestApply(ctx, d, meta); applyErr != nil {
-					return diag.FromErr(applyErr)
+				if d.Get("replace").(bool) {
+					if applyErr := resourceKubectlManifestReplace(ctx, d, meta); applyErr != nil {
+						return diag.FromErr(applyErr)
+					}
+				} else {
+					if applyErr := resourceKubectlManifestApply(ctx, d, meta); applyErr != nil {
+						return diag.FromErr(applyErr)
+					}
 				}
 
 				return nil
@@ -98,11 +113,19 @@ func resourceKubectlManifest() *schema.Resource {
 			if kubectlApplyRetryCount > 0 {
 				retryConfig := backoff.WithMaxRetries(exponentialBackoffConfig, kubectlApplyRetryCount)
 				retryErr := backoff.Retry(func() error {
-					err := resourceKubectlManifestApply(ctx, d, meta)
-					if err != nil {
-						log.Printf("[ERROR] updating manifest failed: %+v", err)
+					if d.Get("replace").(bool) {
+						err := resourceKubectlManifestReplace(ctx, d, meta)
+						if err != nil {
+							log.Printf("[ERROR] updating manifest failed: %+v", err)
+						}
+						return err
+					} else {
+						err := resourceKubectlManifestApply(ctx, d, meta)
+						if err != nil {
+							log.Printf("[ERROR] updating manifest failed: %+v", err)
+						}
+						return err
 					}
-					return err
 				}, retryConfig)
 
 				if retryErr != nil {
@@ -111,8 +134,14 @@ func resourceKubectlManifest() *schema.Resource {
 
 				return nil
 			} else {
-				if applyErr := resourceKubectlManifestApply(ctx, d, meta); applyErr != nil {
-					return diag.FromErr(applyErr)
+				if d.Get("replace").(bool) {
+					if applyErr := resourceKubectlManifestReplace(ctx, d, meta); applyErr != nil {
+						return diag.FromErr(applyErr)
+					}
+				} else {
+					if applyErr := resourceKubectlManifestApply(ctx, d, meta); applyErr != nil {
+						return diag.FromErr(applyErr)
+					}
 				}
 
 				return nil
@@ -432,6 +461,12 @@ metadata:
 				Optional:    true,
 				Default:     true,
 			},
+			"replace": {
+				Type:        schema.TypeBool,
+				Description: "Default to false (replace). Set this flag to do a kubectl replace instead of apply.",
+				Optional:    true,
+				Default:     true,
+			},
 		},
 	}
 }
@@ -518,6 +553,129 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 	log.Printf("[INFO] %s perform apply of manifest", manifest)
 
 	err = applyOptions.Run()
+	_ = os.Remove(tmpfile.Name())
+	if err != nil {
+		return fmt.Errorf("%v failed to run apply: %+v", manifest, err)
+	}
+
+	log.Printf("[INFO] %v manifest applied, fetch resource from kubernetes", manifest)
+
+	// get the resource from Kubernetes
+	response, err := restClient.ResourceInterface.Get(ctx, manifest.unstruct.GetName(), meta_v1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("%v failed to fetch resource from kubernetes: %+v", manifest, err)
+	}
+
+	// get selfLink or generate (for Kubernetes 1.20+)
+	selfLink := response.GetSelfLink()
+	if len(selfLink) == 0 {
+		selfLink = generateSelfLink(
+			response.GetAPIVersion(),
+			response.GetNamespace(),
+			response.GetKind(),
+			response.GetName())
+	}
+
+	d.SetId(selfLink)
+	log.Printf("[DEBUG] %v fetched successfully, set id to: %v", manifest, d.Id())
+
+	// Capture the UID and Resource_version at time of update
+	// this allows us to diff these against the actual values
+	// read in by the 'resourceKubectlManifestRead'
+	_ = d.Set("uid", response.GetUID())
+	_ = d.Set("resource_version", response.GetResourceVersion())
+
+	comparisonOutput, err := getLiveManifestFilteredForUserProvidedOnly(d, manifest.unstruct, response)
+	if err != nil {
+		return fmt.Errorf("%v failed to compare maps of manifest vs version in kubernetes: %+v", manifest, err)
+	}
+
+	_ = d.Set("yaml_incluster", comparisonOutput)
+
+	if d.Get("wait_for_rollout").(bool) {
+		timeout := d.Timeout(schema.TimeoutCreate)
+
+		if manifest.unstruct.GetKind() == "Deployment" {
+			log.Printf("[INFO] %v waiting for deployment rollout for %vmin", manifest, timeout.Minutes())
+			err = resource.RetryContext(ctx, timeout,
+				waitForDeploymentReplicasFunc(ctx, meta.(*KubeProvider), manifest.unstruct.GetNamespace(), manifest.unstruct.GetName()))
+			if err != nil {
+				return err
+			}
+		} else if manifest.unstruct.GetKind() == "APIService" && manifest.unstruct.GetAPIVersion() == "apiregistration.k8s.io/v1" {
+			log.Printf("[INFO] %v waiting for APIService rollout for %vmin", manifest, timeout.Minutes())
+			err = resource.RetryContext(ctx, timeout,
+				waitForAPIServiceAvailableFunc(ctx, meta.(*KubeProvider), manifest.unstruct.GetName()))
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return resourceKubectlManifestReadUsingClient(ctx, d, meta, restClient.ResourceInterface, manifest)
+}
+
+func resourceKubectlManifestReplace(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
+
+	yaml := d.Get("yaml_body").(string)
+	manifest, err := parseYaml(yaml)
+	if err != nil {
+		return fmt.Errorf("failed to parse kubernetes resource: %+v", err)
+	}
+
+	if overrideNamespace, ok := d.GetOk("override_namespace"); ok {
+		manifest.unstruct.SetNamespace(overrideNamespace.(string))
+	}
+
+	log.Printf("[DEBUG] %v replace kubernetes resource:\n%s", manifest, yaml)
+
+	// Create a client to talk to the resource API based on the APIVersion and Kind
+	// defined in the YAML
+	restClient := getRestClientFromUnstructured(manifest, meta.(*KubeProvider))
+	if restClient.Error != nil {
+		return fmt.Errorf("%v failed to create kubernetes rest client for update of resource: %+v", manifest, restClient.Error)
+	}
+
+	// Update the resource in Kubernetes, using a temp file
+	yamlJson, err := manifest.unstruct.MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("%v failed to convert object to json: %+v", manifest, err)
+	}
+
+	yamlParsed, err := yamlWriter.JSONToYAML(yamlJson)
+	if err != nil {
+		return fmt.Errorf("%v failed to convert json to yaml: %+v", manifest, err)
+	}
+
+	yaml = string(yamlParsed)
+
+	tmpfile, _ := ioutil.TempFile("", "*kubectl_manifest.yaml")
+	_, _ = tmpfile.Write([]byte(yaml))
+	_ = tmpfile.Close()
+
+	replaceOptions := replace.NewReplaceOptions(genericclioptions.IOStreams{
+		In:     strings.NewReader(yaml),
+		Out:    log.Writer(),
+		ErrOut: log.Writer(),
+	})
+	replaceOptions.Builder = func() *k8sresource.Builder {
+		return k8sresource.NewBuilder(k8sresource.RESTClientGetter(meta.(*KubeProvider)))
+	}
+	replaceOptions.DeleteOptions = &k8sdelete.DeleteOptions{
+		FilenameOptions: k8sresource.FilenameOptions{
+			Filenames: []string{tmpfile.Name()},
+		},
+	}
+
+	if manifest.hasNamespace() {
+		replaceOptions.Namespace = manifest.unstruct.GetNamespace()
+	}
+
+	log.Printf("[INFO] %s perform replace of manifest", manifest)
+
+	f := cmdutil.NewFactory(nil)
+
+	err = replaceOptions.Run(f)
 	_ = os.Remove(tmpfile.Name())
 	if err != nil {
 		return fmt.Errorf("%v failed to run apply: %+v", manifest, err)
