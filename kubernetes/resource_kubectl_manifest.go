@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gavinbunney/terraform-provider-kubectl/flatten"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"io/ioutil"
-	"k8s.io/cli-runtime/pkg/printers"
-	"k8s.io/kubectl/pkg/validation"
 	"os"
 	"sort"
 	"time"
+
+	"github.com/gavinbunney/terraform-provider-kubectl/flatten"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"k8s.io/cli-runtime/pkg/printers"
+	"k8s.io/kubectl/pkg/validation"
 
 	"log"
 	"strings"
@@ -34,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	meta_v1_unstruct "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	yamlWriter "sigs.k8s.io/yaml"
 
@@ -79,8 +81,8 @@ func resourceKubectlManifest() *schema.Resource {
 				return nil
 			} else {
 				if d.Get("replace").(bool) {
-					if applyErr := resourceKubectlManifestReplace(ctx, d, meta); applyErr != nil {
-						return diag.FromErr(applyErr)
+					if replaceErr := resourceKubectlManifestReplace(ctx, d, meta); replaceErr != nil {
+						return diag.FromErr(replaceErr)
 					}
 				} else {
 					if applyErr := resourceKubectlManifestApply(ctx, d, meta); applyErr != nil {
@@ -463,7 +465,7 @@ metadata:
 			},
 			"replace": {
 				Type:        schema.TypeBool,
-				Description: "Default to false (replace). Set this flag to do a kubectl replace instead of apply.",
+				Description: "Default to false (replace). Set this flag to do a 'kubectl replace --force' instead of apply.",
 				Optional:    true,
 				Default:     true,
 			},
@@ -653,15 +655,36 @@ func resourceKubectlManifestReplace(ctx context.Context, d *schema.ResourceData,
 	_, _ = tmpfile.Write([]byte(yaml))
 	_ = tmpfile.Close()
 
+	kubeConfigFlags := genericclioptions.NewConfigFlags(true)
+	f := cmdutil.NewFactory(kubeConfigFlags)
+
 	replaceOptions := replace.NewReplaceOptions(genericclioptions.IOStreams{
 		In:     strings.NewReader(yaml),
 		Out:    log.Writer(),
 		ErrOut: log.Writer(),
 	})
-	replaceOptions.Builder = func() *k8sresource.Builder {
-		return k8sresource.NewBuilder(k8sresource.RESTClientGetter(meta.(*KubeProvider)))
+
+	recorder, err := replaceOptions.RecordFlags.ToRecorder()
+	if err != nil {
+		return err
 	}
+	replaceOptions.Recorder = recorder
+
+	printer, err := replaceOptions.PrintFlags.ToPrinter()
+	if err != nil {
+		return err
+	}
+	replaceOptions.PrintObj = func(obj runtime.Object) error {
+		return printer.PrintObj(obj, replaceOptions.Out)
+	}
+
+	replaceOptions.Builder = func() *k8sresource.Builder {
+		return f.NewBuilder()
+	}
+
 	replaceOptions.DeleteOptions = &k8sdelete.DeleteOptions{
+		ForceDeletion:  true,
+		IgnoreNotFound: true,
 		FilenameOptions: k8sresource.FilenameOptions{
 			Filenames: []string{tmpfile.Name()},
 		},
@@ -673,12 +696,10 @@ func resourceKubectlManifestReplace(ctx context.Context, d *schema.ResourceData,
 
 	log.Printf("[INFO] %s perform replace of manifest", manifest)
 
-	f := cmdutil.NewFactory(nil)
-
 	err = replaceOptions.Run(f)
 	_ = os.Remove(tmpfile.Name())
 	if err != nil {
-		return fmt.Errorf("%v failed to run apply: %+v", manifest, err)
+		return fmt.Errorf("%v failed to run replace: %+v", manifest, err)
 	}
 
 	log.Printf("[INFO] %v manifest applied, fetch resource from kubernetes", manifest)

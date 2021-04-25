@@ -44,6 +44,7 @@ YAML
 * `validate_schema` - Optional. Setting to `false` will mimic `kubectl apply --validate=false` mode. Default `true`.
 * `wait` - Optional. Set this flag to wait or not for finalized to complete for deleted objects. Default `false`.
 * `wait_for_rollout` - Optional. Set this flag to wait or not for Deployments and APIService to complete rollout. Default `true`.
+* `replace` - Optional. Set this flag to do a `kubectl replace --force` instead of apply. Default `false`.
 
 ## Attribute Reference
 
