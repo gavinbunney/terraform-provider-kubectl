@@ -467,7 +467,7 @@ metadata:
 				Type:        schema.TypeBool,
 				Description: "Default to false (force_replace). Set this flag to do a 'kubectl replace --force' instead of apply.",
 				Optional:    true,
-				Default:     true,
+				Default:     false,
 			},
 		},
 	}

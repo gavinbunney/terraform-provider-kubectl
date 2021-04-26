@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/cenkalti/backoff v2.1.1+incompatible
+	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/hashicorp/go-plugin v1.3.0
 	github.com/hashicorp/hcl/v2 v2.6.0
 	github.com/hashicorp/terraform v0.12.29
@@ -14,6 +15,8 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/zclconf/go-cty v1.2.1
 	github.com/zclconf/go-cty-yaml v1.0.1
+	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
+	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/grpc v1.32.0
 	gopkg.in/yaml.v2 v2.2.8
 	k8s.io/api v0.18.12
