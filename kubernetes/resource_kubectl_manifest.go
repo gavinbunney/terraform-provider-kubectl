@@ -59,7 +59,7 @@ func resourceKubectlManifest() *schema.Resource {
 			if kubectlApplyRetryCount > 0 {
 				retryConfig := backoff.WithMaxRetries(exponentialBackoffConfig, kubectlApplyRetryCount)
 				retryErr := backoff.Retry(func() error {
-					if d.Get("replace").(bool) {
+					if d.Get("force_replace").(bool) {
 						err := resourceKubectlManifestReplace(ctx, d, meta)
 						if err != nil {
 							log.Printf("[ERROR] creating manifest failed: %+v", err)
@@ -80,7 +80,7 @@ func resourceKubectlManifest() *schema.Resource {
 
 				return nil
 			} else {
-				if d.Get("replace").(bool) {
+				if d.Get("force_replace").(bool) {
 					if replaceErr := resourceKubectlManifestReplace(ctx, d, meta); replaceErr != nil {
 						return diag.FromErr(replaceErr)
 					}
@@ -115,7 +115,7 @@ func resourceKubectlManifest() *schema.Resource {
 			if kubectlApplyRetryCount > 0 {
 				retryConfig := backoff.WithMaxRetries(exponentialBackoffConfig, kubectlApplyRetryCount)
 				retryErr := backoff.Retry(func() error {
-					if d.Get("replace").(bool) {
+					if d.Get("force_replace").(bool) {
 						err := resourceKubectlManifestReplace(ctx, d, meta)
 						if err != nil {
 							log.Printf("[ERROR] updating manifest failed: %+v", err)
@@ -136,7 +136,7 @@ func resourceKubectlManifest() *schema.Resource {
 
 				return nil
 			} else {
-				if d.Get("replace").(bool) {
+				if d.Get("force_replace").(bool) {
 					if applyErr := resourceKubectlManifestReplace(ctx, d, meta); applyErr != nil {
 						return diag.FromErr(applyErr)
 					}
@@ -463,9 +463,9 @@ metadata:
 				Optional:    true,
 				Default:     true,
 			},
-			"replace": {
+			"force_replace": {
 				Type:        schema.TypeBool,
-				Description: "Default to false (replace). Set this flag to do a 'kubectl replace --force' instead of apply.",
+				Description: "Default to false (force_replace). Set this flag to do a 'kubectl replace --force' instead of apply.",
 				Optional:    true,
 				Default:     true,
 			},
