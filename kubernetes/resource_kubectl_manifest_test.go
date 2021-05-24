@@ -54,8 +54,10 @@ spec:
       - path: "/testpath"
         pathType: "Prefix"
         backend:
-          serviceName: test
-          servicePort: 80
+          service:
+            name: test
+            port: 
+              number: 80
 	EOT
 		}
 `
@@ -308,8 +310,10 @@ spec:
       - path: "/testpath"
         pathType: "Prefix"
         backend:
-          serviceName: test
-          servicePort: 80`
+          service:
+            name: test
+            port: 
+              number: 80`
 
 	config := fmt.Sprintf(`
 resource "kubectl_manifest" "test" {
@@ -362,8 +366,10 @@ spec:
       - path: "/testpath"
         pathType: "Prefix"
         backend:
-          serviceName: test
-          servicePort: 80`
+          service:
+            name: test
+            port: 
+              number: 80`
 
 	config := fmt.Sprintf(`
 resource "kubectl_manifest" "test" {
@@ -397,8 +403,10 @@ spec:
     http:
       paths:
       - backend:
-          serviceName: test
-          servicePort: 80
+          service:
+            name: test
+            port: 
+              number: 80
         path: /testpath
         pathType: "Prefix"
 `),
@@ -424,8 +432,10 @@ spec:
       - path: "/testpath"
         pathType: "Prefix"
         backend:
-          serviceName: test
-          servicePort: 80`
+          service:
+            name: test
+            port: 
+              number: 80`
 
 	config := fmt.Sprintf(`
 resource "kubectl_manifest" "test" {

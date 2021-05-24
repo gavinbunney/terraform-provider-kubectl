@@ -20,8 +20,10 @@ spec:
           - path: "/"
             pathType: "Prefix"
             backend:
-              serviceName: jerry
-              servicePort: 80
+              service:
+                name: jerry
+                port:
+                  number: 80
   tls:
     - secretName: name-here
       hosts:

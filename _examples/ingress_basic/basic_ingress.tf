@@ -19,8 +19,10 @@ spec:
       - path: "/testpath"
         pathType: "Prefix"
         backend:
-          serviceName: test
-          servicePort: 80
+          service:
+            name: test
+            port:
+              number: 80
     YAML
 
   sensitive_fields = [
