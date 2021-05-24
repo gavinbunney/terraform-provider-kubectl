@@ -46,8 +46,10 @@ metadata:
   name: name-here
   namespace: this-doesnt-exist
 spec:
+  ingressClassName: "nginx"
   rules:
-  - http:
+  - host: "*.example.com"
+    http:
       paths:
       - path: "/testpath"
         pathType: "Prefix"
@@ -298,8 +300,10 @@ kind: Ingress
 metadata:
   name: name-here
 spec:
+  ingressClassName: "nginx"
   rules:
-  - http:
+  - host: "*.example.com"
+    http:
       paths:
       - path: "/testpath"
         pathType: "Prefix"
@@ -333,6 +337,7 @@ kind: Ingress
 metadata:
   name: name-here
 spec:
+  ingressClassName: "nginx"
   rules: (sensitive value)
 `),
 				),
@@ -349,8 +354,10 @@ kind: Ingress
 metadata:
   name: name-here
 spec:
+  ingressClassName: "nginx"
   rules:
-  - http:
+  - host: "*.example.com"
+    http:
       paths:
       - path: "/testpath"
         pathType: "Prefix"
@@ -384,8 +391,10 @@ kind: Ingress
 metadata:
   name: name-here
 spec:
+  ingressClassName: "nginx"
   rules:
-  - http:
+  - host: "*.example.com"
+    http:
       paths:
       - backend:
           serviceName: test
@@ -407,8 +416,10 @@ kind: Ingress
 metadata:
   name: name-here
 spec:
+  ingressClassName: "nginx"
   rules:
-  - http:
+  - host: "*.example.com"
+    http:
       paths:
       - path: "/testpath"
         pathType: "Prefix"

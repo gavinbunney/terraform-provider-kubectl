@@ -11,8 +11,10 @@ metadata:
     azure/frontdoor: enabled
     azure/sensitive: "this is a big secret"
 spec:
+  ingressClassName: "nginx"
   rules:
-  - http:
+  - host: "*.example.com"
+    http:
       paths:
       - path: "/testpath"
         pathType: "Prefix"
