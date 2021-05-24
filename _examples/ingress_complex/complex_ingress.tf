@@ -18,6 +18,7 @@ spec:
       http:
         paths:
           - path: "/"
+            pathType: "Prefix"
             backend:
               serviceName: jerry
               servicePort: 80

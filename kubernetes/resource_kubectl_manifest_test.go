@@ -50,6 +50,7 @@ spec:
   - http:
       paths:
       - path: "/testpath"
+        pathType: "Prefix"
         backend:
           serviceName: test
           servicePort: 80
@@ -301,6 +302,7 @@ spec:
   - http:
       paths:
       - path: "/testpath"
+        pathType: "Prefix"
         backend:
           serviceName: test
           servicePort: 80`
@@ -351,6 +353,7 @@ spec:
   - http:
       paths:
       - path: "/testpath"
+        pathType: "Prefix"
         backend:
           serviceName: test
           servicePort: 80`
@@ -388,6 +391,7 @@ spec:
           serviceName: test
           servicePort: 80
         path: /testpath
+        pathType: "Prefix"
 `),
 				),
 			},
@@ -407,6 +411,7 @@ spec:
   - http:
       paths:
       - path: "/testpath"
+        pathType: "Prefix"
         backend:
           serviceName: test
           servicePort: 80`

@@ -26,6 +26,7 @@ spec:
   - http:
       paths:
       - path: /testpath
+        pathType: "Prefix"
         backend:
           serviceName: test
           servicePort: 80
