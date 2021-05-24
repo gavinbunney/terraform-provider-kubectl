@@ -3,7 +3,7 @@ services:
 language: go
 sudo: required
 go:
-  - "1.15.x"
+  - "1.16.x"
 dist: bionic
 
 #env:

@@ -40,7 +40,7 @@ func TestAccKubectlUnknownNamespace(t *testing.T) {
 	config := `
 resource "kubectl_manifest" "test" {
 	yaml_body = <<EOT
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: name-here
@@ -292,7 +292,7 @@ type: Opaque
 func TestAccKubectlSensitiveFields_slice(t *testing.T) {
 
 	yaml_body := `
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: name-here
@@ -326,7 +326,7 @@ resource "kubectl_manifest" "test" {
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body", yaml_body+"\n"),
-					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body_parsed", `apiVersion: extensions/v1beta1
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body_parsed", `apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: name-here
@@ -342,7 +342,7 @@ spec:
 func TestAccKubectlSensitiveFields_unknown_field(t *testing.T) {
 
 	yaml_body := `
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: name-here
@@ -376,7 +376,7 @@ resource "kubectl_manifest" "test" {
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body", yaml_body+"\n"),
-					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body_parsed", `apiVersion: extensions/v1beta1
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body_parsed", `apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: name-here
@@ -398,7 +398,7 @@ spec:
 func TestAccKubectlWithoutValidation(t *testing.T) {
 
 	yaml_body := `
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: name-here

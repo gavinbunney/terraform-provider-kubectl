@@ -14,7 +14,7 @@ Behind the scenes, this provider uses the same capability as the `kubectl apply`
 ```hcl
 resource "kubectl_manifest" "test" {
     yaml_body = <<YAML
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: test-ingress
