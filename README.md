@@ -1,6 +1,6 @@
 # Kubernetes "kubectl" Provider 
 
-[![Build Status](https://travis-ci.org/gavinbunney/terraform-provider-kubectl.svg?branch=master)](https://travis-ci.org/gavinbunney/terraform-provider-kubectl) [![codecov](https://codecov.io/gh/gavinbunney/terraform-provider-kubectl/branch/master/graph/badge.svg)](https://codecov.io/gh/gavinbunney/terraform-provider-kubectl) [![user guide](https://img.shields.io/badge/-user%20guide-blue)](https://registry.terraform.io/providers/gavinbunney/kubectl)
+![Build Status](https://github.com/gavinbunney/terraform-provider-kubectl/actions/workflows/build.yml/badge.svg) [![user guide](https://img.shields.io/badge/-user%20guide-blue)](https://registry.terraform.io/providers/gavinbunney/kubectl)
 
 This provider is the best way of managing Kubernetes resources in Terraform, by allowing you to use the thing 
 Kubernetes loves best - yaml!

@@ -2,25 +2,28 @@ provider "kubectl" {}
 
 resource "kubectl_manifest" "test" {
   yaml_body = <<YAML
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
-    kubernetes.io/ingress.class: nginx
     nginx.ingress.kubernetes.io/affinity: cookie
     nginx.ingress.kubernetes.io/proxy-body-size: 0m
     nginx.ingress.kubernetes.io/rewrite-target: "/"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
   name: name-here
 spec:
+  ingressClassName: "nginx"
   rules:
-    - host: bob
+    - host: "bob.example.com"
       http:
         paths:
           - path: "/"
+            pathType: "Prefix"
             backend:
-              serviceName: jerry
-              servicePort: 80
+              service:
+                name: jerry
+                port:
+                  number: 80
   tls:
     - secretName: name-here
       hosts:

@@ -40,19 +40,24 @@ func TestAccKubectlUnknownNamespace(t *testing.T) {
 	config := `
 resource "kubectl_manifest" "test" {
 	yaml_body = <<EOT
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: name-here
   namespace: this-doesnt-exist
 spec:
+  ingressClassName: "nginx"
   rules:
-  - http:
+  - host: "*.example.com"
+    http:
       paths:
       - path: "/testpath"
+        pathType: "Prefix"
         backend:
-          serviceName: test
-          servicePort: 80
+          service:
+            name: test
+            port: 
+              number: 80
 	EOT
 		}
 `
@@ -292,18 +297,23 @@ type: Opaque
 func TestAccKubectlSensitiveFields_slice(t *testing.T) {
 
 	yaml_body := `
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: name-here
 spec:
+  ingressClassName: "nginx"
   rules:
-  - http:
+  - host: "*.example.com"
+    http:
       paths:
       - path: "/testpath"
+        pathType: "Prefix"
         backend:
-          serviceName: test
-          servicePort: 80`
+          service:
+            name: test
+            port: 
+              number: 80`
 
 	config := fmt.Sprintf(`
 resource "kubectl_manifest" "test" {
@@ -326,11 +336,12 @@ resource "kubectl_manifest" "test" {
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body", yaml_body+"\n"),
-					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body_parsed", `apiVersion: extensions/v1beta1
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body_parsed", `apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: name-here
 spec:
+  ingressClassName: nginx
   rules: (sensitive value)
 `),
 				),
@@ -342,18 +353,23 @@ spec:
 func TestAccKubectlSensitiveFields_unknown_field(t *testing.T) {
 
 	yaml_body := `
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: name-here
 spec:
+  ingressClassName: "nginx"
   rules:
-  - http:
+  - host: "*.example.com"
+    http:
       paths:
       - path: "/testpath"
+        pathType: "Prefix"
         backend:
-          serviceName: test
-          servicePort: 80`
+          service:
+            name: test
+            port: 
+              number: 80`
 
 	config := fmt.Sprintf(`
 resource "kubectl_manifest" "test" {
@@ -376,18 +392,23 @@ resource "kubectl_manifest" "test" {
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body", yaml_body+"\n"),
-					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body_parsed", `apiVersion: extensions/v1beta1
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_body_parsed", `apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: name-here
 spec:
+  ingressClassName: nginx
   rules:
-  - http:
+  - host: '*.example.com'
+    http:
       paths:
       - backend:
-          serviceName: test
-          servicePort: 80
+          service:
+            name: test
+            port:
+              number: 80
         path: /testpath
+        pathType: Prefix
 `),
 				),
 			},
@@ -398,18 +419,23 @@ spec:
 func TestAccKubectlWithoutValidation(t *testing.T) {
 
 	yaml_body := `
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: name-here
 spec:
+  ingressClassName: "nginx"
   rules:
-  - http:
+  - host: "*.example.com"
+    http:
       paths:
       - path: "/testpath"
+        pathType: "Prefix"
         backend:
-          serviceName: test
-          servicePort: 80`
+          service:
+            name: test
+            port: 
+              number: 80`
 
 	config := fmt.Sprintf(`
 resource "kubectl_manifest" "test" {

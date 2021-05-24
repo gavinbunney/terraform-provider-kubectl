@@ -9,15 +9,15 @@ export KUBECONFIG=$(CURRENT_DIR)/scripts/kubeconfig.yaml
 
 default: build
 
-build: fmtcheck
+build:
 	go install
 
-test: fmtcheck
+test:
 	go test -i $(TEST) || exit 1
 	echo $(TEST) | \
 		xargs -t -n4 go test $(TESTARGS) -timeout=30s -parallel=4
 
-testacc: fmtcheck
+testacc:
 	TF_ACC=1 go test ./kubernetes -v $(TESTARGS) -timeout 120m -count=1
 
 k3s-start:
@@ -47,22 +47,14 @@ fmtcheck:
 errcheck:
 	@sh -c "'$(CURDIR)/scripts/errcheck.sh'"
 
-changelog:
-	@if [ "$(GITHUB_TOKEN)" == "" ]; then echo "[!] GITHUB_TOKEN environment variable is required but not set" && exit 1; fi;
-	@docker run --rm -v $(CURDIR):/usr/local/src/your-app -t ferrarimarco/github-changelog-generator:latest --user gavinbunney --project terraform-provider-kubectl --token ${GITHUB_TOKEN} --no-compare-link
+ci-build-setup:
+	sudo rm /usr/local/bin/docker-compose
+	curl -L https://github.com/docker/compose/releases/download/1.25.4/docker-compose-`uname -s`-`uname -m` > docker-compose
+	chmod +x docker-compose
+	sudo mv docker-compose /usr/local/bin
+	curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.20.7/bin/linux/amd64/kubectl
+	chmod +x kubectl
+	sudo mv kubectl /usr/local/bin/
+	bash scripts/gogetcookie.sh
 
-vendor-status:
-	@govendor status
-
-build-binaries:
-	@sh -c "'$(CURDIR)/scripts/build.sh'"
-
-test-compile:
-	@if [ "$(TEST)" = "./..." ]; then \
-		echo "ERROR: Set TEST to a specific package. For example,"; \
-		echo "  make test-compile TEST=./$(PKG_NAME)"; \
-		exit 1; \
-	fi
-	go test -c $(TEST) $(TESTARGS)
-
-.PHONY: build test testacc vet fmt fmtcheck errcheck vendor-status test-compile build-binaries changelog
+.PHONY: build test testacc k3s-start k3s-stop publish vet fmt fmtcheck errcheck ci-build-setup

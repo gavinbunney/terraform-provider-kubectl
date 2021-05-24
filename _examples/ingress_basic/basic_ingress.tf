@@ -2,7 +2,7 @@ provider "kubectl" {}
 
 resource "kubectl_manifest" "test" {
     yaml_body = <<YAML
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: name-here
@@ -11,13 +11,18 @@ metadata:
     azure/frontdoor: enabled
     azure/sensitive: "this is a big secret"
 spec:
+  ingressClassName: "nginx"
   rules:
-  - http:
+  - host: "*.example.com"
+    http:
       paths:
       - path: "/testpath"
+        pathType: "Prefix"
         backend:
-          serviceName: test
-          servicePort: 80
+          service:
+            name: test
+            port:
+              number: 80
     YAML
 
   sensitive_fields = [
