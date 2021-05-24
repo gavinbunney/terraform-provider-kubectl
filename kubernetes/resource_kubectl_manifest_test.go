@@ -341,7 +341,7 @@ kind: Ingress
 metadata:
   name: name-here
 spec:
-  ingressClassName: "nginx"
+  ingressClassName: nginx
   rules: (sensitive value)
 `),
 				),
@@ -397,18 +397,18 @@ kind: Ingress
 metadata:
   name: name-here
 spec:
-  ingressClassName: "nginx"
+  ingressClassName: nginx
   rules:
-  - host: "*.example.com"
+  - host: '*.example.com'
     http:
       paths:
       - backend:
           service:
             name: test
-            port: 
+            port:
               number: 80
         path: /testpath
-        pathType: "Prefix"
+        pathType: Prefix
 `),
 				),
 			},
