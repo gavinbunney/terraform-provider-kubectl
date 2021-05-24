@@ -822,3 +822,39 @@ func TestGenerateSelfLink(t *testing.T) {
 	link = generateSelfLink("apps/v1", "ns", "Deployment", "name")
 	assert.Equal(t, link, "/apis/apps/v1/namespaces/ns/deployments/name")
 }
+
+func TestAccKubectlServerSideValidationFailure(t *testing.T) {
+
+	config := `
+resource "kubectl_manifest" "test" {
+  yaml_body = <<YAML
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress
+spec:
+  rules:
+    - host: "test-a.proxypile.tk"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx.test-a.svc.cluster.local
+                port:
+                  number: 8080
+YAML
+}
+`
+	expectedError, _ := regexp.Compile(".*Invalid value: \"nginx.test-a.svc.cluster.local\": a DNS-1035 label must consist of lower case alphanumeric characters.*")
+	resource.Test(t, resource.TestCase{
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				ExpectError: expectedError,
+				Config:      config,
+			},
+		},
+	})
+}
