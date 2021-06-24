@@ -202,6 +202,7 @@ metadata:
 				_ = d.Set("namespace", metaObjLive.GetNamespace())
 				_ = d.Set("name", metaObjLive.GetName())
 				_ = d.Set("force_new", false)
+				_ = d.Set("server_side_apply", false)
 
 				// clear out fields user can't set to try and get parity with yaml_body
 				meta_v1_unstruct.RemoveNestedField(metaObjLive.Object, "metadata", "creationTimestamp")
@@ -409,6 +410,12 @@ metadata:
 				Optional:    true,
 				Default:     false,
 			},
+			"server_side_apply": {
+				Type:        schema.TypeBool,
+				Description: "Default to client-side-apply. Setting to true will use server-side apply.",
+				Optional:    true,
+				Default:     false,
+			},
 			"ignore_fields": {
 				Type:        schema.TypeList,
 				Elem:        &schema.Schema{Type: schema.TypeString},
@@ -509,6 +516,11 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 
 	if !d.Get("validate_schema").(bool) {
 		applyOptions.Validator = validation.NullSchema{}
+	}
+
+	if d.Get("server_side_apply").(bool) {
+		applyOptions.ServerSideApply = true
+		applyOptions.FieldManager = "kubectl"
 	}
 
 	if manifest.hasNamespace() {

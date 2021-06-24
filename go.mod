@@ -25,4 +25,5 @@ require (
 	sigs.k8s.io/yaml v1.2.0
 )
 
+replace github.com/tencentcloud/tencentcloud-sdk-go => github.com/tencentcloud/tencentcloud-sdk-go v1.0.175
 //replace github.com/Azure/go-autorest v10.15.4+incompatible => github.com/Azure/go-autorest v13.0.0+incompatible
