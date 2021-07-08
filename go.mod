@@ -16,12 +16,13 @@ require (
 	github.com/zclconf/go-cty-yaml v1.0.2
 	google.golang.org/grpc v1.38.0
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.20.7
-	k8s.io/apimachinery v0.20.7
-	k8s.io/cli-runtime v0.20.7
-	k8s.io/client-go v0.20.7
-	k8s.io/kube-aggregator v0.20.7
-	k8s.io/kubectl v0.20.7
+	k8s.io/api v0.21.1
+	k8s.io/apimachinery v0.21.1
+	k8s.io/cli-runtime v0.21.1
+	k8s.io/client-go v0.21.1
+	k8s.io/kube-aggregator v0.21.1
+	k8s.io/kubectl v0.21.1
+	sigs.k8s.io/kustomize/api v0.8.10
 	sigs.k8s.io/yaml v1.2.0
 )
 
