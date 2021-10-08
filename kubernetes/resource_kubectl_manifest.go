@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"github.com/gavinbunney/terraform-provider-kubectl/flatten"
@@ -177,13 +178,9 @@ metadata:
 				_ = d.Set("resource_version", metaObjLive.GetResourceVersion())
 				_ = d.Set("live_resource_version", metaObjLive.GetResourceVersion())
 
-				comparisonOutput, err := getLiveManifestFilteredForUserProvidedOnly(d, metaObjLive, metaObjLive)
-				if err != nil {
-					return []*schema.ResourceData{}, err
-				}
-
-				_ = d.Set("yaml_incluster", comparisonOutput)
-				_ = d.Set("live_manifest_incluster", comparisonOutput)
+				liveManifestFingerprint := getLiveManifestFingerprint(d, metaObjLive, metaObjLive)
+				_ = d.Set("yaml_incluster", liveManifestFingerprint)
+				_ = d.Set("live_manifest_incluster", liveManifestFingerprint)
 
 				// get selfLink or generate (for Kubernetes 1.20+)
 				selfLink := metaObjLive.GetSelfLink()
@@ -560,14 +557,13 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 	// this allows us to diff these against the actual values
 	// read in by the 'resourceKubectlManifestRead'
 	_ = d.Set("uid", response.GetUID())
+	_ = d.Set("live_uid", response.GetUID())
 	_ = d.Set("resource_version", response.GetResourceVersion())
+	_ = d.Set("live_resource_version", response.GetResourceVersion())
 
-	comparisonOutput, err := getLiveManifestFilteredForUserProvidedOnly(d, manifest.unstruct, response)
-	if err != nil {
-		return fmt.Errorf("%v failed to compare maps of manifest vs version in kubernetes: %+v", manifest, err)
-	}
-
-	_ = d.Set("yaml_incluster", comparisonOutput)
+	liveManifestFingerprint := getLiveManifestFingerprint(d, manifest.unstruct, response)
+	_ = d.Set("yaml_incluster", liveManifestFingerprint)
+	_ = d.Set("live_manifest_incluster", liveManifestFingerprint)
 
 	if d.Get("wait_for_rollout").(bool) {
 		timeout := d.Timeout(schema.TimeoutCreate)
@@ -644,12 +640,8 @@ func resourceKubectlManifestReadUsingClient(ctx context.Context, d *schema.Resou
 	_ = d.Set("live_uid", metaObjLive.GetUID())
 	_ = d.Set("live_resource_version", metaObjLive.GetResourceVersion())
 
-	comparisonOutput, err := getLiveManifestFilteredForUserProvidedOnly(d, manifest.unstruct, metaObjLive)
-	if err != nil {
-		return fmt.Errorf("%v failed to compare maps of manifest vs version in kubernetes: %+v", manifest, err)
-	}
-
-	_ = d.Set("live_manifest_incluster", comparisonOutput)
+	liveManifestFingerprint := getLiveManifestFingerprint(d, manifest.unstruct, metaObjLive)
+	_ = d.Set("live_manifest_incluster", liveManifestFingerprint)
 
 	return nil
 }
@@ -927,17 +919,28 @@ func expandStringList(configured []interface{}) []string {
 	return vs
 }
 
-func getLiveManifestFilteredForUserProvidedOnly(d *schema.ResourceData, userProvided *meta_v1_unstruct.Unstructured, liveManifest *meta_v1_unstruct.Unstructured) (string, error) {
+func getLiveManifestFingerprint(d *schema.ResourceData, userProvided *meta_v1_unstruct.Unstructured, liveManifest *meta_v1_unstruct.Unstructured) string {
+	fields := getLiveManifestFields(d, userProvided, liveManifest)
+	return getFingerprint(fields)
+}
+
+func getLiveManifestFields(d *schema.ResourceData, userProvided *meta_v1_unstruct.Unstructured, liveManifest *meta_v1_unstruct.Unstructured) string {
 	var ignoreFields []string = nil
 	ignoreFieldsRaw, hasIgnoreFields := d.GetOk("ignore_fields")
 	if hasIgnoreFields {
 		ignoreFields = expandStringList(ignoreFieldsRaw.([]interface{}))
 	}
 
-	return getLiveManifestFilteredForUserProvidedOnlyWithIgnoredFields(ignoreFields, userProvided, liveManifest)
+	return getLiveManifestFields_WithIgnoredFields(ignoreFields, userProvided, liveManifest)
 }
 
-func getLiveManifestFilteredForUserProvidedOnlyWithIgnoredFields(ignoredFields []string, userProvided *meta_v1_unstruct.Unstructured, liveManifest *meta_v1_unstruct.Unstructured) (string, error) {
+func getFingerprint(s string) string {
+	fingerprint := sha256.New()
+	fingerprint.Write([]byte(s))
+	return fmt.Sprintf("%x", fingerprint.Sum(nil))
+}
+
+func getLiveManifestFields_WithIgnoredFields(ignoredFields []string, userProvided *meta_v1_unstruct.Unstructured, liveManifest *meta_v1_unstruct.Unstructured) string {
 
 	flattenedUser := flatten.Flatten(userProvided.Object)
 	flattenedLive := flatten.Flatten(liveManifest.Object)
@@ -985,7 +988,7 @@ func getLiveManifestFilteredForUserProvidedOnlyWithIgnoredFields(ignoredFields [
 		returnedValues = append(returnedValues, fmt.Sprintf("%s=%s", k, flattenedUser[k]))
 	}
 
-	return strings.Join(returnedValues, ","), nil
+	return strings.Join(returnedValues, ",")
 }
 
 var kubernetesControlFields = map[string]bool{
