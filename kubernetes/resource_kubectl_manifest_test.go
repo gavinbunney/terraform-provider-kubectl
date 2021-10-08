@@ -126,7 +126,8 @@ metadata:
   namespace: %s
 type: Opaque
 `, namespace)),
-					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_incluster", fmt.Sprintf(`apiVersion=v1,kind=Secret,metadata.name=mysecret,metadata.namespace=%s,type=Opaque`, namespace)),
+
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_incluster", getFingerprint(fmt.Sprintf(`apiVersion=v1,kind=Secret,metadata.name=mysecret,metadata.namespace=%s,type=Opaque`, namespace))),
 				),
 			},
 		},
@@ -184,7 +185,7 @@ metadata:
   namespace: %s
 type: Opaque
 `, namespace)),
-					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_incluster", fmt.Sprintf(`apiVersion=v1,kind=Secret,metadata.name=mysecret,metadata.namespace=%s,type=Opaque`, namespace)),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_incluster", getFingerprint(fmt.Sprintf(`apiVersion=v1,kind=Secret,metadata.name=mysecret,metadata.namespace=%s,type=Opaque`, namespace))),
 				),
 			},
 		},
@@ -240,7 +241,7 @@ rules:
   - watch
   - list
 `, namespace, namespace)),
-					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_incluster", fmt.Sprintf(`apiVersion=rbac.authorization.k8s.io/v1,kind=ClusterRole,metadata.name=mysuperrole-%s,rules.#=1,rules.0.apiGroups.#=1,rules.0.apiGroups.0=,rules.0.resources.#=1,rules.0.resources.0=secrets,rules.0.verbs.#=3,rules.0.verbs.0=get,rules.0.verbs.1=watch,rules.0.verbs.2=list`, namespace)),
+					resource.TestCheckResourceAttr("kubectl_manifest.test", "yaml_incluster", getFingerprint(fmt.Sprintf(`apiVersion=rbac.authorization.k8s.io/v1,kind=ClusterRole,metadata.name=mysuperrole-%s,rules.#=1,rules.0.apiGroups.#=1,rules.0.apiGroups.0=,rules.0.resources.#=1,rules.0.resources.0=secrets,rules.0.verbs.#=3,rules.0.verbs.0=get,rules.0.verbs.1=watch,rules.0.verbs.2=list`, namespace))),
 				),
 			},
 		},
@@ -465,11 +466,12 @@ resource "kubectl_manifest" "test" {
 
 func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 	testCases := []struct {
-		description    string
-		expectedString string
-		userProvided   map[string]interface{}
-		liveManifest   map[string]interface{}
-		ignored        []string
+		description         string
+		expectedFields      string
+		expectedFingerprint string
+		userProvided        map[string]interface{}
+		liveManifest        map[string]interface{}
+		ignored             []string
 	}{
 		{
 			description: "Simple map with string value",
@@ -479,7 +481,8 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 			liveManifest: map[string]interface{}{
 				"test1": "test2",
 			},
-			expectedString: "test1=test2",
+			expectedFields:      "test1=test2",
+			expectedFingerprint: "9369bac4ce5d012a79110117b871e20bb3484dab079d1471ee5981da42fb4a30",
 		},
 		{
 			// Ensure skippable fields are skipped
@@ -492,7 +495,8 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 				"test1":           "test2",
 				"resourceVersion": "1245",
 			},
-			expectedString: "test1=test2",
+			expectedFields:      "test1=test2",
+			expectedFingerprint: "9369bac4ce5d012a79110117b871e20bb3484dab079d1471ee5981da42fb4a30",
 		},
 		{
 			// Ensure ignored fields are skipped
@@ -505,8 +509,9 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 				"test1":      "test2",
 				"ignoreThis": "1245",
 			},
-			expectedString: "test1=test2",
-			ignored:        []string{"ignoreThis"},
+			expectedFields:      "test1=test2",
+			expectedFingerprint: "9369bac4ce5d012a79110117b871e20bb3484dab079d1471ee5981da42fb4a30",
+			ignored:             []string{"ignoreThis"},
 		},
 		{
 			// Ensure ignored sub fields are skipped
@@ -523,8 +528,9 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 					"this": "1245",
 				},
 			},
-			expectedString: "test1=test2",
-			ignored:        []string{"ignore.this"},
+			expectedFields:      "test1=test2",
+			expectedFingerprint: "9369bac4ce5d012a79110117b871e20bb3484dab079d1471ee5981da42fb4a30",
+			ignored:             []string{"ignore.this"},
 		},
 		{
 			// Ensure ignored sub fields are skipped
@@ -541,8 +547,9 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 					"this": "1245",
 				},
 			},
-			expectedString: "test1=test2",
-			ignored:        []string{"ignore"},
+			expectedFields:      "test1=test2",
+			expectedFingerprint: "9369bac4ce5d012a79110117b871e20bb3484dab079d1471ee5981da42fb4a30",
+			ignored:             []string{"ignore"},
 		},
 		{
 			// Ensure ignored sub fields are skipped
@@ -562,8 +569,9 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 					},
 				},
 			},
-			expectedString: "test1=test2",
-			ignored:        []string{"ignore"},
+			expectedFields:      "test1=test2",
+			expectedFingerprint: "9369bac4ce5d012a79110117b871e20bb3484dab079d1471ee5981da42fb4a30",
+			ignored:             []string{"ignore"},
 		},
 		{
 			// Ensure nested `map[string]string` are supported
@@ -580,7 +588,8 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 					"bob": "bill",
 				},
 			},
-			expectedString: "nest.bob=bill,test1=test2",
+			expectedFields:      "nest.bob=bill,test1=test2",
+			expectedFingerprint: "3101bf7d8f32b48993efa15e0fdd439237e63ef093d23e92deb9b8485e3faa03",
 		},
 		{
 			// Ensure nested `map[string]string` with different ordering are supported
@@ -601,7 +610,8 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 					"bob3": "bill",
 				},
 			},
-			expectedString: "nest.bob1=bill,nest.bob2=bill,nest.bob3=bill,test1=test2",
+			expectedFields:      "nest.bob1=bill,nest.bob2=bill,nest.bob3=bill,test1=test2",
+			expectedFingerprint: "0ad7f5a7682d24a2105a457f9093ab406d9a3c92a14d1e67e25ac0a1fea79ca9",
 		},
 		{
 			description: "Map with nested map[string]string with nested array",
@@ -625,7 +635,8 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 					},
 				},
 			},
-			expectedString: "nest.bob1.#=3,nest.bob1.0=c,nest.bob1.1=b,nest.bob1.2=a,test1=test2",
+			expectedFields:      "nest.bob1.#=3,nest.bob1.0=c,nest.bob1.1=b,nest.bob1.2=a,test1=test2",
+			expectedFingerprint: "7c234055ab3af4bfc4541b4f11ebe41f089f65ff2276454783fd066c4e890bb9",
 		},
 		{
 			description: "Map with nested map[string]string with nested array and nested map",
@@ -663,7 +674,8 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 					},
 				},
 			},
-			expectedString: "nest.bob1.#=2,nest.bob1.0.1=1,nest.bob1.0.2=2,nest.bob1.0.3=3,nest.bob1.1.1=1,nest.bob1.1.2=2,nest.bob1.1.3=3,test1=test2",
+			expectedFields:      "nest.bob1.#=2,nest.bob1.0.1=1,nest.bob1.0.2=2,nest.bob1.0.3=3,nest.bob1.1.1=1,nest.bob1.1.2=2,nest.bob1.1.3=3,test1=test2",
+			expectedFingerprint: "f3efd8721cbfa6421a4230c6fffdac94d63a51e57097a45979972e6654a992da",
 		},
 		{
 			// Ensure ordering of the fields doesn't affect matching
@@ -676,7 +688,8 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 				"afield": "test2",
 				"ztest1": "test2",
 			},
-			expectedString: "afield=test2,ztest1=test2",
+			expectedFields:      "afield=test2,ztest1=test2",
+			expectedFingerprint: "6ddd159d93a55b78442c74cacfff5a2afb04ead770f87ac0af1b7471e71ddead",
 		},
 		{
 			// Ensure nested arrays are handled
@@ -693,7 +706,8 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 					"1", "2",
 				},
 			},
-			expectedString: "afield=test2,ztest1.#=2,ztest1.0=1,ztest1.1=2",
+			expectedFields:      "afield=test2,ztest1.#=2,ztest1.0=1,ztest1.1=2",
+			expectedFingerprint: "d09ba05ec3c744be7174243acfd2370a6d0dabfbe7980bc5ee02c0790d383960",
 		},
 		{
 			// Ensure fields added to the `liveManifest` which aren't present in the `originl` are ignored
@@ -707,7 +721,8 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 					"1", "2",
 				},
 			},
-			expectedString: "afield=test2",
+			expectedFields:      "afield=test2",
+			expectedFingerprint: "18cf5c716095e42b64da5d4929c605022b6799fb3866bf9f1d12f4e30d40c185",
 		},
 		{
 			// Ensure that fields present in the `userProvided` but missing in the `liveManifest` are skipped
@@ -719,7 +734,8 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 			liveManifest: map[string]interface{}{
 				"afield": "test2",
 			},
-			expectedString: "afield=test2",
+			expectedFields:      "afield=test2",
+			expectedFingerprint: "18cf5c716095e42b64da5d4929c605022b6799fb3866bf9f1d12f4e30d40c185",
 		},
 		{
 			description: "Handle integers",
@@ -729,7 +745,8 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 			liveManifest: map[string]interface{}{
 				"afield": 1,
 			},
-			expectedString: "afield=1",
+			expectedFields:      "afield=1",
+			expectedFingerprint: "b4636ba2492c0110641065ccef19d47ac718f317d4541608587954c924e9d521",
 		},
 		{
 			// Ensure that the updated value for `afield` on the `liveManifest` object is taken
@@ -740,7 +757,8 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 			liveManifest: map[string]interface{}{
 				"afield": 2,
 			},
-			expectedString: "afield=2",
+			expectedFields:      "afield=2",
+			expectedFingerprint: "e99abf0780d7d15a43b75f39a1e82a7ec6342d8efb5b077c46a6b85ec2b2efcb",
 		},
 		{
 			// Ensure that the updated value fo the `liveManifest` object is taken for the `willchange` field
@@ -756,7 +774,8 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 					"willchange": "updatedbill",
 				},
 			},
-			expectedString: "nest.willchange=updatedbill",
+			expectedFields:      "nest.willchange=updatedbill",
+			expectedFingerprint: "ebbab7294a88055e1b6af53fdb0da8366054e1c7b88d79294d8424b85d4eb769",
 		},
 		{
 			// Ensure that both fields are tracked in the output
@@ -773,7 +792,8 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 					"atest": "bill",
 				},
 			},
-			expectedString: "atest=test,nest.atest=bill",
+			expectedFields:      "atest=test,nest.atest=bill",
+			expectedFingerprint: "0a926a0980a93f7360e2badadbb8c362dd345fd53c641d1096e5680fd66c11e3",
 		},
 		{
 			description: "Map with nested map[string]string with annotations",
@@ -793,7 +813,8 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 					},
 				},
 			},
-			expectedString: "atest=test,meta.annotations.helm.sh/hook=crd-install",
+			expectedFields:      "atest=test,meta.annotations.helm.sh/hook=crd-install",
+			expectedFingerprint: "5d9a5cd23ce01763e52f171e6bf2d98ca3cfed982974579af4c011ff6010694f",
 		},
 	}
 
@@ -801,10 +822,12 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 		t.Run(tcase.description, func(t *testing.T) {
 			userProvided := &unstructured.Unstructured{Object: tcase.userProvided}
 			liveManifest := &unstructured.Unstructured{Object: tcase.liveManifest}
-			result, err := getLiveManifestFilteredForUserProvidedOnlyWithIgnoredFields(tcase.ignored, userProvided, liveManifest)
-			assert.NoError(t, err, "Expect compareMaps to succeed")
 
-			assert.Equal(t, tcase.expectedString, result, "Expect the builder output to match")
+			fields := getLiveManifestFields_WithIgnoredFields(tcase.ignored, userProvided, liveManifest)
+			assert.Equal(t, tcase.expectedFields, fields, "Expect the builder output to match")
+
+			fingerprint := getFingerprint(fields)
+			assert.Equal(t, tcase.expectedFingerprint, fingerprint, "Expect the builder output to match")
 		})
 	}
 }

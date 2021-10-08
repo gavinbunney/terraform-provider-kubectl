@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"github.com/gavinbunney/terraform-provider-kubectl/flatten"
@@ -177,13 +178,9 @@ metadata:
 				_ = d.Set("resource_version", metaObjLive.GetResourceVersion())
 				_ = d.Set("live_resource_version", metaObjLive.GetResourceVersion())
 
-				comparisonOutput, err := getLiveManifestFilteredForUserProvidedOnly(d, metaObjLive, metaObjLive)
-				if err != nil {
-					return []*schema.ResourceData{}, err
-				}
-
-				_ = d.Set("yaml_incluster", comparisonOutput)
-				_ = d.Set("live_manifest_incluster", comparisonOutput)
+				liveManifestFingerprint := getLiveManifestFingerprint(d, metaObjLive, metaObjLive)
+				_ = d.Set("yaml_incluster", liveManifestFingerprint)
+				_ = d.Set("live_manifest_incluster", liveManifestFingerprint)
 
 				// get selfLink or generate (for Kubernetes 1.20+)
 				selfLink := metaObjLive.GetSelfLink()
@@ -336,112 +333,134 @@ metadata:
 
 			return nil
 		},
-		Schema: map[string]*schema.Schema{
-			"uid": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"resource_version": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"live_uid": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"live_resource_version": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"yaml_incluster": {
-				Type:      schema.TypeString,
-				Computed:  true,
-				Sensitive: true,
-			},
-			"live_manifest_incluster": {
-				Type:      schema.TypeString,
-				Computed:  true,
-				Sensitive: true,
-			},
-			"api_version": {
-				Type:     schema.TypeString,
-				Computed: true,
-				ForceNew: true,
-			},
-			"kind": {
-				Type:     schema.TypeString,
-				Computed: true,
-				ForceNew: true,
-			},
-			"name": {
-				Type:     schema.TypeString,
-				Computed: true,
-				ForceNew: true,
-			},
-			"namespace": {
-				Type:     schema.TypeString,
-				Computed: true,
-				ForceNew: true,
-			},
-			"override_namespace": {
-				Type:        schema.TypeString,
-				Description: "Override the namespace to apply the kubernetes resource to",
-				Optional:    true,
-			},
-			"yaml_body": {
-				Type:      schema.TypeString,
-				Required:  true,
-				Sensitive: true,
-			},
-			"yaml_body_parsed": {
-				Type:        schema.TypeString,
-				Description: "Yaml body that is being applied, with sensitive values obfuscated",
-				Computed:    true,
-			},
-			"sensitive_fields": {
-				Type:        schema.TypeList,
-				Elem:        &schema.Schema{Type: schema.TypeString},
-				Description: "List of yaml keys with sensitive values. Set these for fields which you want obfuscated in the yaml_body output",
-				Optional:    true,
-			},
-			"force_new": {
-				Type:        schema.TypeBool,
-				Description: "Default to update in-place. Setting to true will delete and create the kubernetes instead.",
-				Optional:    true,
-				Default:     false,
-			},
-			"server_side_apply": {
-				Type:        schema.TypeBool,
-				Description: "Default to client-side-apply. Setting to true will use server-side apply.",
-				Optional:    true,
-				Default:     false,
-			},
-			"ignore_fields": {
-				Type:        schema.TypeList,
-				Elem:        &schema.Schema{Type: schema.TypeString},
-				Description: "List of yaml keys to ignore changes to. Set these for fields set by Operators or other processes in kubernetes and as such you don't want to update.",
-				Optional:    true,
-			},
-			"wait": {
-				Type:        schema.TypeBool,
-				Description: "Default to false (not waiting). Set this flag to wait or not for any deleted resources to be gone. This waits for finalizers.",
-				Optional:    true,
-			},
-			"wait_for_rollout": {
-				Type:        schema.TypeBool,
-				Description: "Default to true (waiting). Set this flag to wait or not for Deployments and APIService to complete rollout",
-				Optional:    true,
-				Default:     true,
-			},
-			"validate_schema": {
-				Type:        schema.TypeBool,
-				Description: "Default to true (validate). Set this flag to not validate the yaml schema before appying.",
-				Optional:    true,
-				Default:     true,
+		Schema:        kubectlManifestSchema,
+		SchemaVersion: 1,
+		StateUpgraders: []schema.StateUpgrader{
+			{
+				Version: 0,
+				Type:    resourceKubectlManifestV0().CoreConfigSchema().ImpliedType(),
+				Upgrade: func(ctx context.Context, rawState map[string]interface{}, meta interface{}) (map[string]interface{}, error) {
+					rawState["yaml_incluster"] = getFingerprint(rawState["yaml_incluster"].(string))
+					rawState["live_manifest_incluster"] = getFingerprint(rawState["live_manifest_incluster"].(string))
+					return rawState, nil
+				},
 			},
 		},
 	}
 }
+
+func resourceKubectlManifestV0() *schema.Resource {
+	return &schema.Resource{
+		Schema: kubectlManifestSchema,
+	}
+}
+
+var (
+	kubectlManifestSchema = map[string]*schema.Schema{
+		"uid": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"resource_version": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"live_uid": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"live_resource_version": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"yaml_incluster": {
+			Type:      schema.TypeString,
+			Computed:  true,
+			Sensitive: true,
+		},
+		"live_manifest_incluster": {
+			Type:      schema.TypeString,
+			Computed:  true,
+			Sensitive: true,
+		},
+		"api_version": {
+			Type:     schema.TypeString,
+			Computed: true,
+			ForceNew: true,
+		},
+		"kind": {
+			Type:     schema.TypeString,
+			Computed: true,
+			ForceNew: true,
+		},
+		"name": {
+			Type:     schema.TypeString,
+			Computed: true,
+			ForceNew: true,
+		},
+		"namespace": {
+			Type:     schema.TypeString,
+			Computed: true,
+			ForceNew: true,
+		},
+		"override_namespace": {
+			Type:        schema.TypeString,
+			Description: "Override the namespace to apply the kubernetes resource to",
+			Optional:    true,
+		},
+		"yaml_body": {
+			Type:      schema.TypeString,
+			Required:  true,
+			Sensitive: true,
+		},
+		"yaml_body_parsed": {
+			Type:        schema.TypeString,
+			Description: "Yaml body that is being applied, with sensitive values obfuscated",
+			Computed:    true,
+		},
+		"sensitive_fields": {
+			Type:        schema.TypeList,
+			Elem:        &schema.Schema{Type: schema.TypeString},
+			Description: "List of yaml keys with sensitive values. Set these for fields which you want obfuscated in the yaml_body output",
+			Optional:    true,
+		},
+		"force_new": {
+			Type:        schema.TypeBool,
+			Description: "Default to update in-place. Setting to true will delete and create the kubernetes instead.",
+			Optional:    true,
+			Default:     false,
+		},
+		"server_side_apply": {
+			Type:        schema.TypeBool,
+			Description: "Default to client-side-apply. Setting to true will use server-side apply.",
+			Optional:    true,
+			Default:     false,
+		},
+		"ignore_fields": {
+			Type:        schema.TypeList,
+			Elem:        &schema.Schema{Type: schema.TypeString},
+			Description: "List of yaml keys to ignore changes to. Set these for fields set by Operators or other processes in kubernetes and as such you don't want to update.",
+			Optional:    true,
+		},
+		"wait": {
+			Type:        schema.TypeBool,
+			Description: "Default to false (not waiting). Set this flag to wait or not for any deleted resources to be gone. This waits for finalizers.",
+			Optional:    true,
+		},
+		"wait_for_rollout": {
+			Type:        schema.TypeBool,
+			Description: "Default to true (waiting). Set this flag to wait or not for Deployments and APIService to complete rollout",
+			Optional:    true,
+			Default:     true,
+		},
+		"validate_schema": {
+			Type:        schema.TypeBool,
+			Description: "Default to true (validate). Set this flag to not validate the yaml schema before appying.",
+			Optional:    true,
+			Default:     true,
+		},
+	}
+)
 
 type UnstructuredManifest struct {
 	unstruct *meta_v1_unstruct.Unstructured
@@ -560,14 +579,13 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 	// this allows us to diff these against the actual values
 	// read in by the 'resourceKubectlManifestRead'
 	_ = d.Set("uid", response.GetUID())
+	_ = d.Set("live_uid", response.GetUID())
 	_ = d.Set("resource_version", response.GetResourceVersion())
+	_ = d.Set("live_resource_version", response.GetResourceVersion())
 
-	comparisonOutput, err := getLiveManifestFilteredForUserProvidedOnly(d, manifest.unstruct, response)
-	if err != nil {
-		return fmt.Errorf("%v failed to compare maps of manifest vs version in kubernetes: %+v", manifest, err)
-	}
-
-	_ = d.Set("yaml_incluster", comparisonOutput)
+	liveManifestFingerprint := getLiveManifestFingerprint(d, manifest.unstruct, response)
+	_ = d.Set("yaml_incluster", liveManifestFingerprint)
+	_ = d.Set("live_manifest_incluster", liveManifestFingerprint)
 
 	if d.Get("wait_for_rollout").(bool) {
 		timeout := d.Timeout(schema.TimeoutCreate)
@@ -644,12 +662,8 @@ func resourceKubectlManifestReadUsingClient(ctx context.Context, d *schema.Resou
 	_ = d.Set("live_uid", metaObjLive.GetUID())
 	_ = d.Set("live_resource_version", metaObjLive.GetResourceVersion())
 
-	comparisonOutput, err := getLiveManifestFilteredForUserProvidedOnly(d, manifest.unstruct, metaObjLive)
-	if err != nil {
-		return fmt.Errorf("%v failed to compare maps of manifest vs version in kubernetes: %+v", manifest, err)
-	}
-
-	_ = d.Set("live_manifest_incluster", comparisonOutput)
+	liveManifestFingerprint := getLiveManifestFingerprint(d, manifest.unstruct, metaObjLive)
+	_ = d.Set("live_manifest_incluster", liveManifestFingerprint)
 
 	return nil
 }
@@ -927,17 +941,28 @@ func expandStringList(configured []interface{}) []string {
 	return vs
 }
 
-func getLiveManifestFilteredForUserProvidedOnly(d *schema.ResourceData, userProvided *meta_v1_unstruct.Unstructured, liveManifest *meta_v1_unstruct.Unstructured) (string, error) {
+func getLiveManifestFingerprint(d *schema.ResourceData, userProvided *meta_v1_unstruct.Unstructured, liveManifest *meta_v1_unstruct.Unstructured) string {
+	fields := getLiveManifestFields(d, userProvided, liveManifest)
+	return getFingerprint(fields)
+}
+
+func getLiveManifestFields(d *schema.ResourceData, userProvided *meta_v1_unstruct.Unstructured, liveManifest *meta_v1_unstruct.Unstructured) string {
 	var ignoreFields []string = nil
 	ignoreFieldsRaw, hasIgnoreFields := d.GetOk("ignore_fields")
 	if hasIgnoreFields {
 		ignoreFields = expandStringList(ignoreFieldsRaw.([]interface{}))
 	}
 
-	return getLiveManifestFilteredForUserProvidedOnlyWithIgnoredFields(ignoreFields, userProvided, liveManifest)
+	return getLiveManifestFields_WithIgnoredFields(ignoreFields, userProvided, liveManifest)
 }
 
-func getLiveManifestFilteredForUserProvidedOnlyWithIgnoredFields(ignoredFields []string, userProvided *meta_v1_unstruct.Unstructured, liveManifest *meta_v1_unstruct.Unstructured) (string, error) {
+func getFingerprint(s string) string {
+	fingerprint := sha256.New()
+	fingerprint.Write([]byte(s))
+	return fmt.Sprintf("%x", fingerprint.Sum(nil))
+}
+
+func getLiveManifestFields_WithIgnoredFields(ignoredFields []string, userProvided *meta_v1_unstruct.Unstructured, liveManifest *meta_v1_unstruct.Unstructured) string {
 
 	flattenedUser := flatten.Flatten(userProvided.Object)
 	flattenedLive := flatten.Flatten(liveManifest.Object)
@@ -985,7 +1010,7 @@ func getLiveManifestFilteredForUserProvidedOnlyWithIgnoredFields(ignoredFields [
 		returnedValues = append(returnedValues, fmt.Sprintf("%s=%s", k, flattenedUser[k]))
 	}
 
-	return strings.Join(returnedValues, ","), nil
+	return strings.Join(returnedValues, ",")
 }
 
 var kubernetesControlFields = map[string]bool{
