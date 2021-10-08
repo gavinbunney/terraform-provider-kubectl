@@ -333,112 +333,134 @@ metadata:
 
 			return nil
 		},
-		Schema: map[string]*schema.Schema{
-			"uid": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"resource_version": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"live_uid": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"live_resource_version": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"yaml_incluster": {
-				Type:      schema.TypeString,
-				Computed:  true,
-				Sensitive: true,
-			},
-			"live_manifest_incluster": {
-				Type:      schema.TypeString,
-				Computed:  true,
-				Sensitive: true,
-			},
-			"api_version": {
-				Type:     schema.TypeString,
-				Computed: true,
-				ForceNew: true,
-			},
-			"kind": {
-				Type:     schema.TypeString,
-				Computed: true,
-				ForceNew: true,
-			},
-			"name": {
-				Type:     schema.TypeString,
-				Computed: true,
-				ForceNew: true,
-			},
-			"namespace": {
-				Type:     schema.TypeString,
-				Computed: true,
-				ForceNew: true,
-			},
-			"override_namespace": {
-				Type:        schema.TypeString,
-				Description: "Override the namespace to apply the kubernetes resource to",
-				Optional:    true,
-			},
-			"yaml_body": {
-				Type:      schema.TypeString,
-				Required:  true,
-				Sensitive: true,
-			},
-			"yaml_body_parsed": {
-				Type:        schema.TypeString,
-				Description: "Yaml body that is being applied, with sensitive values obfuscated",
-				Computed:    true,
-			},
-			"sensitive_fields": {
-				Type:        schema.TypeList,
-				Elem:        &schema.Schema{Type: schema.TypeString},
-				Description: "List of yaml keys with sensitive values. Set these for fields which you want obfuscated in the yaml_body output",
-				Optional:    true,
-			},
-			"force_new": {
-				Type:        schema.TypeBool,
-				Description: "Default to update in-place. Setting to true will delete and create the kubernetes instead.",
-				Optional:    true,
-				Default:     false,
-			},
-			"server_side_apply": {
-				Type:        schema.TypeBool,
-				Description: "Default to client-side-apply. Setting to true will use server-side apply.",
-				Optional:    true,
-				Default:     false,
-			},
-			"ignore_fields": {
-				Type:        schema.TypeList,
-				Elem:        &schema.Schema{Type: schema.TypeString},
-				Description: "List of yaml keys to ignore changes to. Set these for fields set by Operators or other processes in kubernetes and as such you don't want to update.",
-				Optional:    true,
-			},
-			"wait": {
-				Type:        schema.TypeBool,
-				Description: "Default to false (not waiting). Set this flag to wait or not for any deleted resources to be gone. This waits for finalizers.",
-				Optional:    true,
-			},
-			"wait_for_rollout": {
-				Type:        schema.TypeBool,
-				Description: "Default to true (waiting). Set this flag to wait or not for Deployments and APIService to complete rollout",
-				Optional:    true,
-				Default:     true,
-			},
-			"validate_schema": {
-				Type:        schema.TypeBool,
-				Description: "Default to true (validate). Set this flag to not validate the yaml schema before appying.",
-				Optional:    true,
-				Default:     true,
+		Schema:        kubectlManifestSchema,
+		SchemaVersion: 1,
+		StateUpgraders: []schema.StateUpgrader{
+			{
+				Version: 0,
+				Type:    resourceKubectlManifestV0().CoreConfigSchema().ImpliedType(),
+				Upgrade: func(ctx context.Context, rawState map[string]interface{}, meta interface{}) (map[string]interface{}, error) {
+					rawState["yaml_incluster"] = getFingerprint(rawState["yaml_incluster"].(string))
+					rawState["live_manifest_incluster"] = getFingerprint(rawState["live_manifest_incluster"].(string))
+					return rawState, nil
+				},
 			},
 		},
 	}
 }
+
+func resourceKubectlManifestV0() *schema.Resource {
+	return &schema.Resource{
+		Schema: kubectlManifestSchema,
+	}
+}
+
+var (
+	kubectlManifestSchema = map[string]*schema.Schema{
+		"uid": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"resource_version": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"live_uid": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"live_resource_version": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"yaml_incluster": {
+			Type:      schema.TypeString,
+			Computed:  true,
+			Sensitive: true,
+		},
+		"live_manifest_incluster": {
+			Type:      schema.TypeString,
+			Computed:  true,
+			Sensitive: true,
+		},
+		"api_version": {
+			Type:     schema.TypeString,
+			Computed: true,
+			ForceNew: true,
+		},
+		"kind": {
+			Type:     schema.TypeString,
+			Computed: true,
+			ForceNew: true,
+		},
+		"name": {
+			Type:     schema.TypeString,
+			Computed: true,
+			ForceNew: true,
+		},
+		"namespace": {
+			Type:     schema.TypeString,
+			Computed: true,
+			ForceNew: true,
+		},
+		"override_namespace": {
+			Type:        schema.TypeString,
+			Description: "Override the namespace to apply the kubernetes resource to",
+			Optional:    true,
+		},
+		"yaml_body": {
+			Type:      schema.TypeString,
+			Required:  true,
+			Sensitive: true,
+		},
+		"yaml_body_parsed": {
+			Type:        schema.TypeString,
+			Description: "Yaml body that is being applied, with sensitive values obfuscated",
+			Computed:    true,
+		},
+		"sensitive_fields": {
+			Type:        schema.TypeList,
+			Elem:        &schema.Schema{Type: schema.TypeString},
+			Description: "List of yaml keys with sensitive values. Set these for fields which you want obfuscated in the yaml_body output",
+			Optional:    true,
+		},
+		"force_new": {
+			Type:        schema.TypeBool,
+			Description: "Default to update in-place. Setting to true will delete and create the kubernetes instead.",
+			Optional:    true,
+			Default:     false,
+		},
+		"server_side_apply": {
+			Type:        schema.TypeBool,
+			Description: "Default to client-side-apply. Setting to true will use server-side apply.",
+			Optional:    true,
+			Default:     false,
+		},
+		"ignore_fields": {
+			Type:        schema.TypeList,
+			Elem:        &schema.Schema{Type: schema.TypeString},
+			Description: "List of yaml keys to ignore changes to. Set these for fields set by Operators or other processes in kubernetes and as such you don't want to update.",
+			Optional:    true,
+		},
+		"wait": {
+			Type:        schema.TypeBool,
+			Description: "Default to false (not waiting). Set this flag to wait or not for any deleted resources to be gone. This waits for finalizers.",
+			Optional:    true,
+		},
+		"wait_for_rollout": {
+			Type:        schema.TypeBool,
+			Description: "Default to true (waiting). Set this flag to wait or not for Deployments and APIService to complete rollout",
+			Optional:    true,
+			Default:     true,
+		},
+		"validate_schema": {
+			Type:        schema.TypeBool,
+			Description: "Default to true (validate). Set this flag to not validate the yaml schema before appying.",
+			Optional:    true,
+			Default:     true,
+		},
+	}
+)
 
 type UnstructuredManifest struct {
 	unstruct *meta_v1_unstruct.Unstructured

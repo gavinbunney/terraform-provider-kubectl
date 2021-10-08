@@ -12,6 +12,9 @@ default: build
 build:
 	go install
 
+dist:
+	goreleaser build --single-target --skip-validate --rm-dist
+
 test:
 	go test -i $(TEST) || exit 1
 	echo $(TEST) | \
