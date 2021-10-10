@@ -1,4 +1,4 @@
-package kubernetes
+package yaml
 
 import (
 	"bufio"
@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func splitMultiDocumentYAML(multidoc string) (documents []string, err error) {
+func SplitMultiDocumentYAML(multidoc string) (documents []string, err error) {
 	content := []byte(multidoc)
 
 	contentSplit := bytes.Split(content, []byte(yamlSeparator))
