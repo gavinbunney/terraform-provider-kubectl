@@ -8,13 +8,13 @@ import (
 	"log"
 )
 
-// ParseYAML parses a yaml string into an UnstructuredManifest.
+// ParseYAML parses a yaml string into an Manifest.
 //
 // To make things play nice we need the JSON representation of the object as the `RawObj`
 // 1. UnMarshal YAML into map
 // 2. Marshal map into JSON
 // 3. UnMarshal JSON into the Unstructured type so we get some K8s checking
-func ParseYAML(yaml string) (*UnstructuredManifest, error) {
+func ParseYAML(yaml string) (*Manifest, error) {
 	rawYamlParsed := &map[string]interface{}{}
 	err := yamlParser.Unmarshal([]byte(yaml), rawYamlParsed)
 	if err != nil {
@@ -32,7 +32,7 @@ func ParseYAML(yaml string) (*UnstructuredManifest, error) {
 		return nil, err
 	}
 
-	manifest := &UnstructuredManifest{
+	manifest := &Manifest{
 		Raw: &unstruct,
 	}
 

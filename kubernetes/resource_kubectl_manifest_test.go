@@ -956,12 +956,12 @@ YAML
 	})
 }
 
-func withAlteredField(manifest *yaml.UnstructuredManifest, value interface{}, fields ...string) *yaml.UnstructuredManifest {
+func withAlteredField(manifest *yaml.Manifest, value interface{}, fields ...string) *yaml.Manifest {
 	_ = unstructured.SetNestedField(manifest.Raw.Object, value, fields...)
 	return manifest
 }
 
-func loadRealDeploymentManifest() *yaml.UnstructuredManifest {
+func loadRealDeploymentManifest() *yaml.Manifest {
 	manifest, _ := yaml.ParseYAML(`
 apiVersion: apps/v1
 kind: Deployment

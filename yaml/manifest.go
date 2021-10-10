@@ -3,56 +3,49 @@ package yaml
 import (
 	"fmt"
 	meta_v1_unstruct "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	yamlWriter "sigs.k8s.io/yaml"
 	"strings"
 )
 
-type UnstructuredManifest struct {
+type Manifest struct {
 	Raw *meta_v1_unstruct.Unstructured
 }
 
-func NewFromUnstructured(raw *meta_v1_unstruct.Unstructured) *UnstructuredManifest {
-	return &UnstructuredManifest{
+func NewFromUnstructured(raw *meta_v1_unstruct.Unstructured) *Manifest {
+	return &Manifest{
 		Raw: raw,
 	}
 }
 
-func (m *UnstructuredManifest) GetAPIVersion() string {
+func (m *Manifest) GetAPIVersion() string {
 	return m.Raw.GetAPIVersion()
 }
 
-func (m *UnstructuredManifest) GetKind() string {
+func (m *Manifest) GetKind() string {
 	return m.Raw.GetKind()
 }
 
-func (m *UnstructuredManifest) GetName() string {
+func (m *Manifest) GetName() string {
 	return m.Raw.GetName()
 }
 
-func (m *UnstructuredManifest) GetNamespace() string {
+func (m *Manifest) GetNamespace() string {
 	return m.Raw.GetNamespace()
 }
 
-func (m *UnstructuredManifest) SetNamespace(namespace string) {
+func (m *Manifest) SetNamespace(namespace string) {
 	m.Raw.SetNamespace(namespace)
 }
 
-func (m *UnstructuredManifest) HasNamespace() bool {
+func (m *Manifest) HasNamespace() bool {
 	return m.Raw.GetNamespace() != ""
 }
 
-func (m *UnstructuredManifest) GetUID() string {
+func (m *Manifest) GetUID() string {
 	return fmt.Sprintf("%v", m.Raw.GetUID())
 }
 
-func (m *UnstructuredManifest) String() string {
-	if m.HasNamespace() {
-		return fmt.Sprintf("%s/%s", m.Raw.GetNamespace(), m.Raw.GetName())
-	}
-
-	return m.Raw.GetName()
-}
-
-func (m *UnstructuredManifest) GetSelfLink() string {
+func (m *Manifest) GetSelfLink() string {
 	selfLink := m.Raw.GetSelfLink()
 	if len(selfLink) > 0 {
 		return selfLink
@@ -99,4 +92,28 @@ func buildSelfLink(apiVersion string, namespace string, kind string, name string
 		_, _ = fmt.Fprintf(&linkBuilder, "/%s", name)
 	}
 	return linkBuilder.String()
+}
+
+func (m *Manifest) String() string {
+	if m.HasNamespace() {
+		return fmt.Sprintf("%s/%s", m.Raw.GetNamespace(), m.Raw.GetName())
+	}
+
+	return m.Raw.GetName()
+}
+
+// AsYAML will produce a yaml representation of the manifest.
+// We do this by serializing to json and back again to ensure values and comments are cleansed
+func (m *Manifest) AsYAML() (string, error) {
+	yamlJson, err := m.Raw.MarshalJSON()
+	if err != nil {
+		return "", fmt.Errorf("failed to convert object to json: %+v", err)
+	}
+
+	yamlParsed, err := yamlWriter.JSONToYAML(yamlJson)
+	if err != nil {
+		return "", fmt.Errorf("failed to convert json to yaml: %+v", err)
+	}
+
+	return string(yamlParsed), nil
 }

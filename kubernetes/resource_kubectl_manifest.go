@@ -199,18 +199,13 @@ metadata:
 					meta_v1_unstruct.RemoveNestedField(metaObjLive.Raw.Object, "metadata", "annotations")
 				}
 
-				yamlJson, err := metaObjLive.Raw.MarshalJSON()
+				yamlParsed, err := metaObjLive.AsYAML()
 				if err != nil {
-					return []*schema.ResourceData{}, fmt.Errorf("failed to convert object to json: %+v", err)
+					return []*schema.ResourceData{}, fmt.Errorf("failed to convert manifest to yaml: %+v", err)
 				}
 
-				yamlParsed, err := yamlWriter.JSONToYAML(yamlJson)
-				if err != nil {
-					return []*schema.ResourceData{}, fmt.Errorf("failed to convert json to yaml: %+v", err)
-				}
-
-				_ = d.Set("yaml_body", string(yamlParsed))
-				_ = d.Set("yaml_body_parsed", string(yamlParsed))
+				_ = d.Set("yaml_body", yamlParsed)
+				_ = d.Set("yaml_body_parsed", yamlParsed)
 
 				return []*schema.ResourceData{d}, nil
 			},
@@ -449,17 +444,10 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 	}
 
 	// Update the resource in Kubernetes, using a temp file
-	yamlJson, err := manifest.Raw.MarshalJSON()
+	yamlBody, err = manifest.AsYAML()
 	if err != nil {
-		return fmt.Errorf("%v failed to convert object to json: %+v", manifest, err)
+		return fmt.Errorf("%v failed to convert to yaml: %+v", manifest, err)
 	}
-
-	yamlParsed, err := yamlWriter.JSONToYAML(yamlJson)
-	if err != nil {
-		return fmt.Errorf("%v failed to convert json to yaml: %+v", manifest, err)
-	}
-
-	yamlBody = string(yamlParsed)
 
 	tmpfile, _ := ioutil.TempFile("", "*kubectl_manifest.yaml")
 	_, _ = tmpfile.Write([]byte(yamlBody))
@@ -575,7 +563,7 @@ func resourceKubectlManifestRead(ctx context.Context, d *schema.ResourceData, me
 	return resourceKubectlManifestReadUsingClient(ctx, d, meta, restClient.ResourceInterface, manifest)
 }
 
-func resourceKubectlManifestReadUsingClient(ctx context.Context, d *schema.ResourceData, meta interface{}, client dynamic.ResourceInterface, manifest *yaml.UnstructuredManifest) error {
+func resourceKubectlManifestReadUsingClient(ctx context.Context, d *schema.ResourceData, meta interface{}, client dynamic.ResourceInterface, manifest *yaml.Manifest) error {
 
 	log.Printf("[DEBUG] %v fetch from kubernetes", manifest)
 
@@ -680,9 +668,9 @@ func RestClientResultFromInvalidTypeErr(err error) *RestClientResult {
 	}
 }
 
-func getRestClientFromUnstructured(manifest *yaml.UnstructuredManifest, provider *KubeProvider) *RestClientResult {
+func getRestClientFromUnstructured(manifest *yaml.Manifest, provider *KubeProvider) *RestClientResult {
 
-	doGetRestClientFromUnstructured := func(manifest *yaml.UnstructuredManifest, provider *KubeProvider) *RestClientResult {
+	doGetRestClientFromUnstructured := func(manifest *yaml.Manifest, provider *KubeProvider) *RestClientResult {
 		// Use the k8s Discovery service to find all valid APIs for this cluster
 		discoveryClient, _ := provider.ToDiscoveryClient()
 		var resources []*meta_v1.APIResourceList
@@ -734,7 +722,7 @@ func getRestClientFromUnstructured(manifest *yaml.UnstructuredManifest, provider
 		return RestClientResultSuccess(client)
 	}
 
-	discoveryWithTimeout := func(manifest *yaml.UnstructuredManifest, provider *KubeProvider) <-chan *RestClientResult {
+	discoveryWithTimeout := func(manifest *yaml.Manifest, provider *KubeProvider) <-chan *RestClientResult {
 		ch := make(chan *RestClientResult)
 		go func() {
 			ch <- doGetRestClientFromUnstructured(manifest, provider)
@@ -850,12 +838,12 @@ func expandStringList(configured []interface{}) []string {
 	return vs
 }
 
-func getLiveManifestFingerprint(d *schema.ResourceData, userProvided *yaml.UnstructuredManifest, liveManifest *yaml.UnstructuredManifest) string {
+func getLiveManifestFingerprint(d *schema.ResourceData, userProvided *yaml.Manifest, liveManifest *yaml.Manifest) string {
 	fields := getLiveManifestFields(d, userProvided, liveManifest)
 	return getFingerprint(fields)
 }
 
-func getLiveManifestFields(d *schema.ResourceData, userProvided *yaml.UnstructuredManifest, liveManifest *yaml.UnstructuredManifest) string {
+func getLiveManifestFields(d *schema.ResourceData, userProvided *yaml.Manifest, liveManifest *yaml.Manifest) string {
 	var ignoreFields []string = nil
 	ignoreFieldsRaw, hasIgnoreFields := d.GetOk("ignore_fields")
 	if hasIgnoreFields {
@@ -871,7 +859,7 @@ func getFingerprint(s string) string {
 	return fmt.Sprintf("%x", fingerprint.Sum(nil))
 }
 
-func getLiveManifestFields_WithIgnoredFields(ignoredFields []string, userProvided *yaml.UnstructuredManifest, liveManifest *yaml.UnstructuredManifest) string {
+func getLiveManifestFields_WithIgnoredFields(ignoredFields []string, userProvided *yaml.Manifest, liveManifest *yaml.Manifest) string {
 
 	flattenedUser := flatten.Flatten(userProvided.Raw.Object)
 	flattenedLive := flatten.Flatten(liveManifest.Raw.Object)
