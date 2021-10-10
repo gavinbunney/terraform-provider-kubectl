@@ -96,9 +96,42 @@ YAML
 You can configure a list of yaml keys to ignore changes to via the `ignore_fields` field.
 Set these for fields set by Operators or other processes in kubernetes and as such you don't want to update.
 
+By default, the following control fields are ignored:
+  - `status`
+  - `metadata.finalizers`
+  - `metadata.initializers`
+  - `metadata.ownerReferences`
+  - `metadata.creationTimestamp`
+  - `metadata.generation`
+  - `metadata.resourceVersion`
+  - `metadata.uid`
+  - `metadata.annotations.kubectl.kubernetes.io/last-applied-configuration`
+
+These syntax matches the Terraform style flattened-map syntax, whereby keys are separated by `.` paths.
+
+For example, to ignore the `annotations`, set the `ignore_fields` path to `metadata.annotations`:
+
 ```hcl
 resource "kubectl_manifest" "test" {
-    ignore_fields = ["caBundle"]
+    yaml_body = <<YAML
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: name-here
+  namespace: default
+  annotations:
+    this.should.be.ignored: "true"
+YAML
+
+    ignore_fields = ["metadata.annotations"]
+}
+```
+
+For arrays, the syntax is indexed based on the element position. For example, to ignore the `caBundle` field in the
+below manifest, would be: `webhooks.0.clientConfig.caBundle`
+
+```hcl
+resource "kubectl_manifest" "test" {
     yaml_body = <<YAML
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
@@ -108,8 +141,12 @@ webhooks:
   - clientConfig:
       caBundle: ""
 YAML
+
+    ignore_fields = ["webhooks.0.clientConfig.caBundle"]
 }
 ```
+
+More examples can be found in the provider tests.
 
 ## Waiting for Rollout
 
