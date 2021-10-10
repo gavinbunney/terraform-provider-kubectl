@@ -60,4 +60,4 @@ ci-build-setup:
 	sudo mv kubectl /usr/local/bin/
 	bash scripts/gogetcookie.sh
 
-.PHONY: build test testacc k3s-start k3s-stop publish vet fmt fmtcheck errcheck ci-build-setup
+.PHONY: build dist test testacc k3s-start k3s-stop publish vet fmt fmtcheck errcheck ci-build-setup
