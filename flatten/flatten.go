@@ -36,6 +36,10 @@ func Flatten(thing map[string]interface{}) map[string]string {
 }
 
 func flatten(result map[string]string, prefix string, v reflect.Value) {
+	if v.Kind() == reflect.Invalid {
+		return
+	}
+
 	if v.Kind() == reflect.Interface {
 		v = v.Elem()
 	}

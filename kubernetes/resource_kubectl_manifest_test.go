@@ -843,6 +843,26 @@ func TestGetLiveManifestFilteredForUserProvidedOnly(t *testing.T) {
 			expectedDrift:       false,
 		},
 		{
+			description: "Map with empty annotations in user manifest",
+			userProvided: map[string]interface{}{
+				"atest": "test",
+				"metadata": map[string]interface{}{
+					"annotations": map[string]interface{}{},
+				},
+			},
+			liveManifest: map[string]interface{}{
+				"atest": "test",
+				"metadata": map[string]interface{}{
+					"annotations": map[string]string{
+						"kubectl.kubernetes.io/last-applied-configuration": "{\"should-be-ignored\"}",
+					},
+				},
+			},
+			expectedFields:      "atest=test",
+			expectedFingerprint: "df296364dd3346f0aa05c63f0b0df19b7aa850e44e9f4a80cf6ac06a889d9868",
+			expectedDrift:       false,
+		},
+		{
 			description:         "Deployment manifest without changes",
 			userProvided:        loadRealDeploymentManifest().unstruct.Object,
 			liveManifest:        loadRealDeploymentManifest().unstruct.Object,

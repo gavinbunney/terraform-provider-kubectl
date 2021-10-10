@@ -945,17 +945,20 @@ func getLiveManifestFields_WithIgnoredFields(ignoredFields []string, userProvide
 	// this implicitly excludes anything that the user didn't provide as it was added by kubernetes runtime (annotations/mutations etc)
 	userKeys := []string{}
 	for userKey, userValue := range flattenedUser {
+		normalizedUserValue := strings.TrimSpace(userValue)
+
 		// only include the value if it exists in the live version
 		// that is, don't add to the userKeys array unless the key still exists in the live manifest
 		if _, exists := flattenedLive[userKey]; exists {
 			userKeys = append(userKeys, userKey)
-			flattenedUser[userKey] = strings.TrimSpace(flattenedLive[userKey])
-			if strings.TrimSpace(userValue) != flattenedUser[userKey] {
-				log.Printf("[TRACE] yaml drift detected in %s for %s, was:\n%s now:\n%s", selfLink, userKey, userValue, flattenedLive[userKey])
+			normalizedLiveValue := strings.TrimSpace(flattenedLive[userKey])
+			flattenedUser[userKey] = normalizedLiveValue
+			if normalizedUserValue != normalizedLiveValue {
+				log.Printf("[TRACE] yaml drift detected in %s for %s, was: %s now: %s", selfLink, userKey, normalizedUserValue, normalizedLiveValue)
 			}
 		} else {
-			if strings.TrimSpace(userValue) != "" {
-				log.Printf("[TRACE] yaml drift detected in %s for %s, was %s now blank", selfLink, userKey, userValue)
+			if normalizedUserValue != "" {
+				log.Printf("[TRACE] yaml drift detected in %s for %s, was %s now blank", selfLink, userKey, normalizedUserValue)
 			}
 		}
 	}
