@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"github.com/gavinbunney/terraform-provider-kubectl/yaml"
 	hcl "github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/ext/tryfunc"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
@@ -90,7 +91,7 @@ func dataSourceKubectlPathDocumentsRead(ctx context.Context, d *schema.ResourceD
 			}
 		}
 
-		documents, err := splitMultiDocumentYAML(rendered)
+		documents, err := yaml.SplitMultiDocumentYAML(rendered)
 		if err != nil {
 			return diag.FromErr(err)
 		}

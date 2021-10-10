@@ -1,4 +1,4 @@
-package kubernetes
+package yaml
 
 import (
 	"fmt"
@@ -57,7 +57,7 @@ func TestYAMLDocumentHelper(t *testing.T) {
 
 	for _, tcase := range testCases {
 		t.Run(tcase.description, func(t *testing.T) {
-			result, err := splitMultiDocumentYAML(tcase.yaml)
+			result, err := SplitMultiDocumentYAML(tcase.yaml)
 			assert.NoError(t, err, "Expect to succeed")
 			assert.Equal(t, len(tcase.expectedDocs), len(result), "Expect docs count to match")
 			assert.Equal(t, tcase.expectedDocs, result, "Expect docs to match")
@@ -80,7 +80,7 @@ func TestYAMLDocumentHelperReadLargeFile(t *testing.T) {
 
 	for _, tcase := range testCases {
 		t.Run(tcase.description, func(t *testing.T) {
-			result, err := splitMultiDocumentYAML(tcase.yaml)
+			result, err := SplitMultiDocumentYAML(tcase.yaml)
 			assert.NoError(t, err, "Expect to succeed")
 			assert.Equal(t, 6, len(result), "Expect docs count to match")
 			assert.Contains(t, result[5], tcase.expectedDocs, "Expect docs to contain")
