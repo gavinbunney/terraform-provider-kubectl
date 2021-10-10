@@ -5,10 +5,10 @@ import (
 	"reflect"
 )
 
+// Flatten takes a structure and turns into a flat map[string]string.
+//
 // Based on the Terraform implementation at https://github.com/hashicorp/terraform/blob/master/flatmap/flatten.go
 // Added more generic handling for different types
-//
-// Flatten takes a structure and turns into a flat map[string]string.
 //
 // Within the "thing" parameter, only primitive values are allowed. Structs are
 // not supported. Therefore, it can only be slices, maps, primitives, and
@@ -19,6 +19,16 @@ func Flatten(thing map[string]interface{}) map[string]string {
 	result := make(map[string]string)
 
 	for k, raw := range thing {
+		// when the raw value is nil, skip it to treat it like an empty map/string, i.e. it's not kept in the result map
+		if raw == nil {
+			continue
+		}
+
+		// ignore any keys which are empty strings, as there isn't anything reference it in the resultant map
+		if k == "" {
+			continue
+		}
+
 		flatten(result, k, reflect.ValueOf(raw))
 	}
 

@@ -179,15 +179,7 @@ metadata:
 				_ = d.Set("yaml_incluster", liveManifestFingerprint)
 				_ = d.Set("live_manifest_incluster", liveManifestFingerprint)
 
-				// get selfLink or generate (for Kubernetes 1.20+)
-				selfLink := metaObjLive.GetSelfLink()
-				if len(selfLink) == 0 {
-					selfLink = generateSelfLink(
-						metaObjLive.GetAPIVersion(),
-						metaObjLive.GetNamespace(),
-						metaObjLive.GetKind(),
-						metaObjLive.GetName())
-				}
+				selfLink := getSelfLink(metaObjLive)
 
 				// set fields captured normally during creation/updates
 				d.SetId(selfLink)
@@ -537,15 +529,7 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 		return fmt.Errorf("%v failed to fetch resource from kubernetes: %+v", manifest, err)
 	}
 
-	// get selfLink or generate (for Kubernetes 1.20+)
-	selfLink := response.GetSelfLink()
-	if len(selfLink) == 0 {
-		selfLink = generateSelfLink(
-			response.GetAPIVersion(),
-			response.GetNamespace(),
-			response.GetKind(),
-			response.GetName())
-	}
+	selfLink := getSelfLink(response)
 
 	d.SetId(selfLink)
 	log.Printf("[DEBUG] %v fetched successfully, set id to: %v", manifest, d.Id())
@@ -936,11 +920,17 @@ func getFingerprint(s string) string {
 
 func getLiveManifestFields_WithIgnoredFields(ignoredFields []string, userProvided *meta_v1_unstruct.Unstructured, liveManifest *meta_v1_unstruct.Unstructured) string {
 
+	selfLink := getSelfLink(userProvided)
 	flattenedUser := flatten.Flatten(userProvided.Object)
 	flattenedLive := flatten.Flatten(liveManifest.Object)
 
-	// remove any fields from the user provided set that we want to ignore
-	for _, field := range ignoredFields {
+	// remove any fields from the user provided set or control fields that we want to ignore
+	fieldsToTrim := append([]string(nil), kubernetesControlFields...)
+	if len(ignoredFields) > 0 {
+		fieldsToTrim = append(fieldsToTrim, ignoredFields...)
+	}
+
+	for _, field := range fieldsToTrim {
 		delete(flattenedUser, field)
 
 		// check for any nested fields to ignore
@@ -955,23 +945,17 @@ func getLiveManifestFields_WithIgnoredFields(ignoredFields []string, userProvide
 	// this implicitly excludes anything that the user didn't provide as it was added by kubernetes runtime (annotations/mutations etc)
 	userKeys := []string{}
 	for userKey, userValue := range flattenedUser {
-
-		// ignore any skipping fields that don't make sense for users to update
-		if _, exists := kubernetesControlFields[userKey]; exists {
-			continue
-		}
-
 		// only include the value if it exists in the live version
 		// that is, don't add to the userKeys array unless the key still exists in the live manifest
 		if _, exists := flattenedLive[userKey]; exists {
 			userKeys = append(userKeys, userKey)
 			flattenedUser[userKey] = strings.TrimSpace(flattenedLive[userKey])
 			if strings.TrimSpace(userValue) != flattenedUser[userKey] {
-				log.Printf("[TRACE] yaml drift detected for %s, was:\n%s now:\n%s", userKey, userValue, flattenedLive[userKey])
+				log.Printf("[TRACE] yaml drift detected in %s for %s, was:\n%s now:\n%s", selfLink, userKey, userValue, flattenedLive[userKey])
 			}
 		} else {
 			if strings.TrimSpace(userValue) != "" {
-				log.Printf("[TRACE] yaml drift detected for %s, was %s now blank", userKey, userValue)
+				log.Printf("[TRACE] yaml drift detected in %s for %s, was %s now blank", selfLink, userKey, userValue)
 			}
 		}
 	}
@@ -985,15 +969,25 @@ func getLiveManifestFields_WithIgnoredFields(ignoredFields []string, userProvide
 	return strings.Join(returnedValues, ",")
 }
 
-var kubernetesControlFields = map[string]bool{
-	"status":            true,
-	"finalizers":        true,
-	"initializers":      true,
-	"ownerReferences":   true,
-	"creationTimestamp": true,
-	"generation":        true,
-	"resourceVersion":   true,
-	"uid":               true,
+var kubernetesControlFields = []string{
+	"status",
+	"metadata.finalizers",
+	"metadata.initializers",
+	"metadata.ownerReferences",
+	"metadata.creationTimestamp",
+	"metadata.generation",
+	"metadata.resourceVersion",
+	"metadata.uid",
+	"metadata.annotations.kubectl.kubernetes.io/last-applied-configuration",
+}
+
+func getSelfLink(manifest *meta_v1_unstruct.Unstructured) string {
+	selfLink := manifest.GetSelfLink()
+	if len(selfLink) > 0 {
+		return selfLink
+	}
+
+	return generateSelfLink(manifest.GetAPIVersion(), manifest.GetNamespace(), manifest.GetKind(), manifest.GetName())
 }
 
 // generateSelfLink creates a selfLink of the form:
