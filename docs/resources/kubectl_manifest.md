@@ -56,9 +56,7 @@ YAML
 * `name` - Extracted object name from `yaml_body`.
 * `namespace` - Extracted object namespace from `yaml_body`.
 * `uid` - Kubernetes unique identifier from last run.
-* `resource_version` - Resource version from kubernetes from last run.
 * `live_uid` - Current uuid from kubernetes.
-* `live_resource_version` - Current uuid from kubernetes.
 * `yaml_incluster` - Current yaml within kubernetes.
 * `live_manifest_incluster` - Current manifest within kubernetes.
 

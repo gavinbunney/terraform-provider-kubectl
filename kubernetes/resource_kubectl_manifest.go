@@ -171,12 +171,9 @@ metadata:
 					return []*schema.ResourceData{}, fmt.Errorf("failed to parse item and get UUID: %+v", metaObjLive)
 				}
 
-				// Capture the UID and Resource_version from the cluster at the current time
-
+				// Capture the UID from the cluster at the current time
 				_ = d.Set("uid", metaObjLive.GetUID())
 				_ = d.Set("live_uid", metaObjLive.GetUID())
-				_ = d.Set("resource_version", metaObjLive.GetResourceVersion())
-				_ = d.Set("live_resource_version", metaObjLive.GetResourceVersion())
 
 				liveManifestFingerprint := getLiveManifestFingerprint(d, metaObjLive, metaObjLive)
 				_ = d.Set("yaml_incluster", liveManifestFingerprint)
@@ -303,32 +300,18 @@ metadata:
 				return nil
 			}
 
-			// Get the ResourceVersion of the K8s resource as it was when the `resourceKubectlManifestCreate` func completed.
-			createdAtResourceVersion := d.Get("resource_version").(string)
-			// Get it as it currently is in the cluster
-			resourceVersion, exists := d.Get("live_resource_version").(string)
-			if !exists {
-				return nil
-			}
-
-			// If either UID or ResourceVersion differ between the current state and the cluster
-			// trigger an update on the resource to get back in sync
 			if UID != createdAtUID {
 				log.Printf("[TRACE] DETECTED %s vs %s", UID, createdAtUID)
 				_ = d.SetNewComputed("uid")
 				return nil
 			}
 
-			if resourceVersion != createdAtResourceVersion {
-				log.Printf("[TRACE] DETECTED RESOURCE VERSION %s vs %s", resourceVersion, createdAtResourceVersion)
-				// Check that the fields specified in our YAML for diff against cluster representation
-				stateYaml := d.Get("yaml_incluster").(string)
-				liveStateYaml := d.Get("live_manifest_incluster").(string)
-				if stateYaml != liveStateYaml {
-					log.Printf("[TRACE] DETECTED YAML STATE %s vs %s", stateYaml, liveStateYaml)
-					_ = d.SetNewComputed("yaml_incluster")
-				}
-				return nil
+			// Check that the fields specified in our YAML for diff against cluster representation
+			stateYaml := d.Get("yaml_incluster").(string)
+			liveStateYaml := d.Get("live_manifest_incluster").(string)
+			if stateYaml != liveStateYaml {
+				log.Printf("[TRACE] DETECTED YAML STATE %s vs %s", stateYaml, liveStateYaml)
+				_ = d.SetNewComputed("yaml_incluster")
 			}
 
 			return nil
@@ -361,15 +344,7 @@ var (
 			Type:     schema.TypeString,
 			Computed: true,
 		},
-		"resource_version": {
-			Type:     schema.TypeString,
-			Computed: true,
-		},
 		"live_uid": {
-			Type:     schema.TypeString,
-			Computed: true,
-		},
-		"live_resource_version": {
 			Type:     schema.TypeString,
 			Computed: true,
 		},
@@ -575,13 +550,11 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 	d.SetId(selfLink)
 	log.Printf("[DEBUG] %v fetched successfully, set id to: %v", manifest, d.Id())
 
-	// Capture the UID and Resource_version at time of update
+	// Capture the UID at time of update
 	// this allows us to diff these against the actual values
 	// read in by the 'resourceKubectlManifestRead'
 	_ = d.Set("uid", response.GetUID())
 	_ = d.Set("live_uid", response.GetUID())
-	_ = d.Set("resource_version", response.GetResourceVersion())
-	_ = d.Set("live_resource_version", response.GetResourceVersion())
 
 	liveManifestFingerprint := getLiveManifestFingerprint(d, manifest.unstruct, response)
 	_ = d.Set("yaml_incluster", liveManifestFingerprint)
@@ -658,9 +631,8 @@ func resourceKubectlManifestReadUsingClient(ctx context.Context, d *schema.Resou
 		return fmt.Errorf("%v failed to parse item and get UUID: %+v", manifest, metaObjLive)
 	}
 
-	// Capture the UID and Resource_version from the cluster at the current time
+	// Capture the UID from the cluster at the current time
 	_ = d.Set("live_uid", metaObjLive.GetUID())
-	_ = d.Set("live_resource_version", metaObjLive.GetResourceVersion())
 
 	liveManifestFingerprint := getLiveManifestFingerprint(d, manifest.unstruct, metaObjLive)
 	_ = d.Set("live_manifest_incluster", liveManifestFingerprint)
