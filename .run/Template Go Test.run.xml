@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="true" type="GoTestRunConfiguration" factoryName="Go Test">
+    <module name="terraform-provider-kubectl" />
+    <working_directory value="$PROJECT_DIR$" />
+    <envs>
+      <env name="TF_ACC" value="1 KUBECONFIG=$PROJECT_DIR$/scripts/kubeconfig.yaml" />
+    </envs>
+    <kind value="DIRECTORY" />
+    <package value="github.com/gavinbunney/terraform-provider-kubectl" />
+    <directory value="$PROJECT_DIR$" />
+    <filePath value="$PROJECT_DIR$" />
+    <framework value="gotest" />
+    <method v="2" />
+  </configuration>
+</component>

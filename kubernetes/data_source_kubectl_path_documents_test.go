@@ -62,7 +62,7 @@ data "kubectl_path_documents" "test" {
 `, path+"/*.yaml"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "8"),
-					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "MyYaml: Hello, Malcolm!"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "kind: MyAwesomeCRD\nMyYaml: Hello, Malcolm!"),
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.1", "---\napiVersion: \"stable.example.com/v1\"\nkind: CronTab\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.2", "apiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\nmetadata:\n  name: name-here-crontabs.stable.example.com\nspec:\n  group: stable.example.com\n  conversion:\n    strategy: None\n  scope: Namespaced\n  names:\n    plural: name-here-crontabs\n    singular: crontab\n    kind: MyAwesomeCRD\n    shortNames:\n      - ct\n  version: v1\n  versions:\n    - name: v1\n      served: true\n      storage: true"),
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.3", "---\napiVersion: \"stable.example.com/v1\"\nkind: CronTab\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
@@ -181,7 +181,7 @@ data "kubectl_path_documents" "test" {
 `, path+"/directives-templated.yaml"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "1"),
-					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "MyYaml: Hello, Malcolm!"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "kind: MyAwesomeCRD\nMyYaml: Hello, Malcolm!"),
 				),
 			},
 		},
@@ -205,7 +205,7 @@ data "kubectl_path_documents" "test" {
 `, path+"/directives-templated.yaml"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "1"),
-					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "MyYaml: Hello, unnamed!"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "kind: MyAwesomeCRD\nMyYaml: Hello, unnamed!"),
 				),
 			},
 		},
@@ -304,7 +304,7 @@ data "kubectl_path_documents" "test" {
 `, path+"/directives-templated.yaml"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "1"),
-					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "MyYaml: Hello, %{ if name != \"\" }${name}%{ else }unnamed%{ endif }!"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "kind: MyAwesomeCRD\nMyYaml: Hello, %{ if name != \"\" }${name}%{ else }unnamed%{ endif }!"),
 				),
 			},
 		},

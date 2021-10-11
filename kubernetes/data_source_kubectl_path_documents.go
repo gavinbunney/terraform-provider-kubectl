@@ -36,6 +36,13 @@ func dataSourceKubectlPathDocuments() *schema.Resource {
 				Elem:     &schema.Schema{Type: schema.TypeString},
 				Computed: true,
 			},
+			"manifests": &schema.Schema{
+				Type: schema.TypeMap,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+				Computed: true,
+			},
 			"vars": {
 				Type:         schema.TypeMap,
 				Optional:     true,
@@ -99,8 +106,25 @@ func dataSourceKubectlPathDocumentsRead(ctx context.Context, d *schema.ResourceD
 		allDocuments = append(allDocuments, documents...)
 	}
 
+	manifests := make(map[string]string, 0)
+	for _, doc := range allDocuments {
+		manifest, err := yaml.ParseYAML(doc)
+		if err != nil {
+			return diag.FromErr(fmt.Errorf("failed to parse yaml as a kubernetes yaml manifest: %v", err))
+		}
+
+		parsed, err := manifest.AsYAML()
+		if err != nil {
+			return diag.FromErr(fmt.Errorf("failed to parse convert manifest to yaml: %v", err))
+		}
+
+		manifests[manifest.GetSelfLink()] = parsed
+	}
+
+
 	d.SetId(fmt.Sprintf("%x", sha256.Sum256([]byte(strings.Join(allDocuments, "")))))
 	_ = d.Set("documents", allDocuments)
+	_ = d.Set("manifests", manifests)
 	return nil
 }
 
