@@ -121,7 +121,6 @@ func dataSourceKubectlPathDocumentsRead(ctx context.Context, d *schema.ResourceD
 		manifests[manifest.GetSelfLink()] = parsed
 	}
 
-
 	d.SetId(fmt.Sprintf("%x", sha256.Sum256([]byte(strings.Join(allDocuments, "")))))
 	_ = d.Set("documents", allDocuments)
 	_ = d.Set("manifests", manifests)
