@@ -3,7 +3,8 @@
     <module name="terraform-provider-kubectl" />
     <working_directory value="$PROJECT_DIR$" />
     <envs>
-      <env name="TF_ACC" value="1 KUBECONFIG=$PROJECT_DIR$/scripts/kubeconfig.yaml" />
+      <env name="TF_ACC" value="1" />
+      <env name="KUBECONFIG" value="$PROJECT_DIR$/scripts/kubeconfig.yaml" />
     </envs>
     <kind value="DIRECTORY" />
     <package value="github.com/gavinbunney/terraform-provider-kubectl" />
