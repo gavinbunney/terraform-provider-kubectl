@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"regexp"
 	"testing"
 )
 
@@ -16,7 +17,9 @@ func TestAccKubectlDataSourcePathDocuments_single(t *testing.T) {
 				Config: testAccKubernetesDataSourcePathDocumentsConfig_basic(path + "/single.yaml"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "1"),
-					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "apiVersion: \"stable.example.com/v1\"\nkind: CronTab\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "apiVersion: \"stable.example.com/v1\"\nkind: CronTab\nmetadata:\n  name: name-here-crd-single\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "manifests.%", "1"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "manifests./apis/stable.example.com/v1/crontabs/name-here-crd-single", "apiVersion: stable.example.com/v1\nkind: CronTab\nmetadata:\n  name: name-here-crd-single\nspec:\n  cronSpec: '* * * * /5'\n  image: my-awesome-cron-image\n"),
 				),
 			},
 		},
@@ -35,6 +38,9 @@ func TestAccKubectlDataSourcePathDocuments_multiple(t *testing.T) {
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "2"),
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "---\napiVersion: \"stable.example.com/v1\"\nkind: CronTab\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.1", "apiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\nmetadata:\n  name: name-here-crontabs.stable.example.com\nspec:\n  group: stable.example.com\n  conversion:\n    strategy: None\n  scope: Namespaced\n  names:\n    plural: name-here-crontabs\n    singular: crontab\n    kind: CronTab\n    shortNames:\n      - ct\n  version: v1\n  versions:\n    - name: v1\n      served: true\n      storage: true"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "manifests.%", "2"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "manifests./apis/stable.example.com/v1/crontabs/name-here-crd", "apiVersion: stable.example.com/v1\nkind: CronTab\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: '* * * * /5'\n  image: my-awesome-cron-image\n"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "manifests./apis/apiextensions.k8s.io/v1/customresourcedefinitions/name-here-crontabs.stable.example.com", "apiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\nmetadata:\n  name: name-here-crontabs.stable.example.com\nspec:\n  conversion:\n    strategy: None\n  group: stable.example.com\n  names:\n    kind: CronTab\n    plural: name-here-crontabs\n    shortNames:\n    - ct\n    singular: crontab\n  scope: Namespaced\n  version: v1\n  versions:\n  - name: v1\n    served: true\n    storage: true\n"),
 				),
 			},
 		},
@@ -63,14 +69,49 @@ data "kubectl_path_documents" "test" {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "8"),
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "kind: MyAwesomeCRD\nMyYaml: Hello, Malcolm!"),
-					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.1", "---\napiVersion: \"stable.example.com/v1\"\nkind: CronTab\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
-					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.2", "apiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\nmetadata:\n  name: name-here-crontabs.stable.example.com\nspec:\n  group: stable.example.com\n  conversion:\n    strategy: None\n  scope: Namespaced\n  names:\n    plural: name-here-crontabs\n    singular: crontab\n    kind: MyAwesomeCRD\n    shortNames:\n      - ct\n  version: v1\n  versions:\n    - name: v1\n      served: true\n      storage: true"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.1", "---\napiVersion: \"stable.example.com/v1\"\nkind: CronTab\nmetadata:\n  name: name-here-crd-templated\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.2", "apiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\nmetadata:\n  name: name-here-templated-crontabs.stable.example.com\nspec:\n  group: stable.example.com\n  conversion:\n    strategy: None\n  scope: Namespaced\n  names:\n    plural: name-here-crontabs\n    singular: crontab\n    kind: MyAwesomeCRD\n    shortNames:\n      - ct\n  version: v1\n  versions:\n    - name: v1\n      served: true\n      storage: true"),
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.3", "---\napiVersion: \"stable.example.com/v1\"\nkind: CronTab\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.4", "apiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\nmetadata:\n  name: name-here-crontabs.stable.example.com\nspec:\n  group: stable.example.com\n  conversion:\n    strategy: None\n  scope: Namespaced\n  names:\n    plural: name-here-crontabs\n    singular: crontab\n    kind: CronTab\n    shortNames:\n      - ct\n  version: v1\n  versions:\n    - name: v1\n      served: true\n      storage: true"),
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.5", "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: dev\n  labels:\n    name: dev"),
-					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.6", "apiVersion: \"stable.example.com/v1\"\nkind: MyAwesomeCRD\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
-					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.7", "apiVersion: \"stable.example.com/v1\"\nkind: CronTab\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.6", "apiVersion: \"stable.example.com/v1\"\nkind: MyAwesomeCRD\nmetadata:\n  name: name-here-crd-single-templated\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.7", "apiVersion: \"stable.example.com/v1\"\nkind: CronTab\nmetadata:\n  name: name-here-crd-single\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "manifests.%", "8"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "manifests./apis/myawesomecrds", "MyYaml: Hello, Malcolm!\nkind: MyAwesomeCRD\n"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "manifests./apis/stable.example.com/v1/crontabs/name-here-crd-templated", "apiVersion: stable.example.com/v1\nkind: CronTab\nmetadata:\n  name: name-here-crd-templated\nspec:\n  cronSpec: '* * * * /5'\n  image: my-awesome-cron-image\n"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "manifests./apis/apiextensions.k8s.io/v1/customresourcedefinitions/name-here-templated-crontabs.stable.example.com", "apiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\nmetadata:\n  name: name-here-templated-crontabs.stable.example.com\nspec:\n  conversion:\n    strategy: None\n  group: stable.example.com\n  names:\n    kind: MyAwesomeCRD\n    plural: name-here-crontabs\n    shortNames:\n    - ct\n    singular: crontab\n  scope: Namespaced\n  version: v1\n  versions:\n  - name: v1\n    served: true\n    storage: true\n"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "manifests./apis/stable.example.com/v1/crontabs/name-here-crd", "apiVersion: stable.example.com/v1\nkind: CronTab\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: '* * * * /5'\n  image: my-awesome-cron-image\n"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "manifests./apis/apiextensions.k8s.io/v1/customresourcedefinitions/name-here-crontabs.stable.example.com", "apiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\nmetadata:\n  name: name-here-crontabs.stable.example.com\nspec:\n  conversion:\n    strategy: None\n  group: stable.example.com\n  names:\n    kind: CronTab\n    plural: name-here-crontabs\n    shortNames:\n    - ct\n    singular: crontab\n  scope: Namespaced\n  version: v1\n  versions:\n  - name: v1\n    served: true\n    storage: true\n"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "manifests./api/v1/namespaces/dev", "apiVersion: v1\nkind: Namespace\nmetadata:\n  labels:\n    name: dev\n  name: dev\n"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "manifests./apis/stable.example.com/v1/myawesomecrds/name-here-crd-single-templated", "apiVersion: stable.example.com/v1\nkind: MyAwesomeCRD\nmetadata:\n  name: name-here-crd-single-templated\nspec:\n  cronSpec: '* * * * /5'\n  image: my-awesome-cron-image\n"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "manifests./apis/stable.example.com/v1/crontabs/name-here-crd-single", "apiVersion: stable.example.com/v1\nkind: CronTab\nmetadata:\n  name: name-here-crd-single\nspec:\n  cronSpec: '* * * * /5'\n  image: my-awesome-cron-image\n"),
 				),
+			},
+		},
+	})
+}
+
+func TestAccKubectlDataSourcePathDocuments_multiple_files_duplicates(t *testing.T) {
+	expectedError, _ := regexp.Compile(".*duplicate manifest found with id: /apis/stable.example.com/v1/crontabs/name-here-crd.*")
+	path := "../_examples/manifests/duplicates"
+	resource.Test(t, resource.TestCase{
+		PreCheck:  func() {},
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: fmt.Sprintf(`
+data "kubectl_path_documents" "test" {
+	pattern = "%s"
+	vars = {
+		the_kind           = "MyAwesomeCRD"
+		crd_kind           = "MyAwesomeCRD"
+		name               = "Malcolm"
+		namespaces         = "dev"
+		hyperscale_enabled = "false"
+	}
+}
+`, path+"/*.yaml"),
+				ExpectError: expectedError,
 			},
 		},
 	})
@@ -101,7 +142,7 @@ data "kubectl_path_documents" "test" {
 `, path+"/single-templated.yaml"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "1"),
-					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "apiVersion: \"stable.example.com/v1\"\nkind: MyAwesomeCRD\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "apiVersion: \"stable.example.com/v1\"\nkind: MyAwesomeCRD\nmetadata:\n  name: name-here-crd-single-templated\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
 				),
 			},
 			{
@@ -115,7 +156,7 @@ data "kubectl_path_documents" "test" {
 `, path+"/single-templated.yaml"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "1"),
-					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "apiVersion: \"stable.example.com/v1\"\nkind: MyAwesomeCRD\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "apiVersion: \"stable.example.com/v1\"\nkind: MyAwesomeCRD\nmetadata:\n  name: name-here-crd-single-templated\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
 				),
 			},
 			{
@@ -132,7 +173,7 @@ data "kubectl_path_documents" "test" {
 `, path+"/single-templated.yaml"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "1"),
-					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "apiVersion: \"stable.example.com/v1\"\nkind: MyAwesomeCRD\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "apiVersion: \"stable.example.com/v1\"\nkind: MyAwesomeCRD\nmetadata:\n  name: name-here-crd-single-templated\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
 				),
 			},
 		},
@@ -156,8 +197,8 @@ data "kubectl_path_documents" "test" {
 `, path+"/multiple-templated.yaml"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.#", "2"),
-					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "---\napiVersion: \"stable.example.com/v1\"\nkind: CronTab\nmetadata:\n  name: name-here-crd\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
-					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.1", "apiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\nmetadata:\n  name: name-here-crontabs.stable.example.com\nspec:\n  group: stable.example.com\n  conversion:\n    strategy: None\n  scope: Namespaced\n  names:\n    plural: name-here-crontabs\n    singular: crontab\n    kind: MyAwesomeCRD\n    shortNames:\n      - ct\n  version: v1\n  versions:\n    - name: v1\n      served: true\n      storage: true"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.0", "---\napiVersion: \"stable.example.com/v1\"\nkind: CronTab\nmetadata:\n  name: name-here-crd-templated\nspec:\n  cronSpec: \"* * * * /5\"\n  image: my-awesome-cron-image"),
+					resource.TestCheckResourceAttr("data.kubectl_path_documents.test", "documents.1", "apiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\nmetadata:\n  name: name-here-templated-crontabs.stable.example.com\nspec:\n  group: stable.example.com\n  conversion:\n    strategy: None\n  scope: Namespaced\n  names:\n    plural: name-here-crontabs\n    singular: crontab\n    kind: MyAwesomeCRD\n    shortNames:\n      - ct\n  version: v1\n  versions:\n    - name: v1\n      served: true\n      storage: true"),
 				),
 			},
 		},

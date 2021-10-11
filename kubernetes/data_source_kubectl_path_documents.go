@@ -118,6 +118,10 @@ func dataSourceKubectlPathDocumentsRead(ctx context.Context, d *schema.ResourceD
 			return diag.FromErr(fmt.Errorf("failed to parse convert manifest to yaml: %v", err))
 		}
 
+		if _, exists := manifests[manifest.GetSelfLink()]; exists {
+			return diag.FromErr(fmt.Errorf("duplicate manifest found with id: %v", manifest.GetSelfLink()))
+		}
+
 		manifests[manifest.GetSelfLink()] = parsed
 	}
 

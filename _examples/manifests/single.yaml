@@ -1,7 +1,7 @@
 apiVersion: "stable.example.com/v1"
 kind: CronTab
 metadata:
-  name: name-here-crd
+  name: name-here-crd-single
 spec:
   cronSpec: "* * * * /5"
   image: my-awesome-cron-image
