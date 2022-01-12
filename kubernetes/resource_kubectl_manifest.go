@@ -83,6 +83,9 @@ func resourceKubectlManifest() *schema.Resource {
 			return nil
 		},
 		DeleteContext: func(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+			if d.Get("apply_only").(bool) {
+				return nil
+			}
 			if err := resourceKubectlManifestDelete(ctx, d, meta); err != nil {
 				return diag.FromErr(err)
 			}
@@ -187,6 +190,7 @@ metadata:
 				_ = d.Set("name", metaObjLive.GetName())
 				_ = d.Set("force_new", false)
 				_ = d.Set("server_side_apply", false)
+				_ = d.Set("apply_only", false)
 
 				// clear out fields user can't set to try and get parity with yaml_body
 				meta_v1_unstruct.RemoveNestedField(metaObjLive.Raw.Object, "metadata", "creationTimestamp")
@@ -393,6 +397,12 @@ var (
 		"server_side_apply": {
 			Type:        schema.TypeBool,
 			Description: "Default to client-side-apply. Setting to true will use server-side apply.",
+			Optional:    true,
+			Default:     false,
+		},
+		"apply_only": {
+			Type:        schema.TypeBool,
+			Description: "Apply only. In other words, it does not delete resource in any case.",
 			Optional:    true,
 			Default:     false,
 		},
