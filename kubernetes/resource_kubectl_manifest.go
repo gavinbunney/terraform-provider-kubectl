@@ -400,6 +400,12 @@ var (
 			Optional:    true,
 			Default:     false,
 		},
+		"force_conflicts": {
+			Type:        schema.TypeBool,
+			Description: "Default false.",
+			Optional:    true,
+			Default:     false,
+		},
 		"apply_only": {
 			Type:        schema.TypeBool,
 			Description: "Apply only. In other words, it does not delete resource in any case.",
@@ -486,6 +492,10 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 	if d.Get("server_side_apply").(bool) {
 		applyOptions.ServerSideApply = true
 		applyOptions.FieldManager = "kubectl"
+	}
+
+	if d.Get("force_conflicts").(bool) {
+		applyOptions.ForceConflicts = true
 	}
 
 	if manifest.HasNamespace() {

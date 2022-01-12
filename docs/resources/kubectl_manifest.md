@@ -42,6 +42,7 @@ YAML
 * `sensitive_fields` - Optional. List of fields (dot-syntax) which are sensitive and should be obfuscated in output. Defaults to `["data"]` for Secrets.
 * `force_new` - Optional. Forces delete & create of resources if the `yaml_body` changes. Default `false`.
 * `server_side_apply` - Optional. Allow using server-side-apply method. Default `false`.
+* `force_conflicts` - Optional. Allow using force_conflicts. Default `false`.
 * `apply_only` - Optional. It does not delete resource in any case Default `false`.
 * `ignore_fields` - Optional. List of map fields to ignore when applying the manifest. See below for more details.
 * `override_namespace` - Optional. Override the namespace to apply the kubernetes resource to, ignoring any declared namespace in the `yaml_body`.
@@ -74,7 +75,7 @@ resource "kubectl_manifest" "test" {
     sensitive_fields = [
         "metadata.annotations.my-secret-annotation"
     ]
-    
+
     yaml_body = <<YAML
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
