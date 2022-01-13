@@ -279,7 +279,20 @@ func initializeConfiguration(d *schema.ResourceData) (*restclient.Config, error)
 		configPaths = filepath.SplitList(v)
 	}
 
-	if d.Get("load_config_file").(bool) && len(configPaths) > 0 {
+	if v, ok := d.GetOk("exec"); ok {
+		exec := &clientcmdapi.ExecConfig{}
+		if spec, ok := v.([]interface{})[0].(map[string]interface{}); ok {
+			exec.APIVersion = spec["api_version"].(string)
+			exec.Command = spec["command"].(string)
+			exec.Args = expandStringSlice(spec["args"].([]interface{}))
+			for kk, vv := range spec["env"].(map[string]interface{}) {
+				exec.Env = append(exec.Env, clientcmdapi.ExecEnvVar{Name: kk, Value: vv.(string)})
+			}
+		} else {
+			return nil, fmt.Errorf("Failed to parse exec")
+		}
+		overrides.AuthInfo.Exec = exec
+	} else if d.Get("load_config_file").(bool) && len(configPaths) > 0 {
 		expandedPaths := []string{}
 		for _, p := range configPaths {
 			path, err := homedir.Expand(p)
@@ -359,21 +372,6 @@ func initializeConfiguration(d *schema.ResourceData) (*restclient.Config, error)
 	}
 	if v, ok := d.GetOk("token"); ok {
 		overrides.AuthInfo.Token = v.(string)
-	}
-
-	if v, ok := d.GetOk("exec"); ok {
-		exec := &clientcmdapi.ExecConfig{}
-		if spec, ok := v.([]interface{})[0].(map[string]interface{}); ok {
-			exec.APIVersion = spec["api_version"].(string)
-			exec.Command = spec["command"].(string)
-			exec.Args = expandStringSlice(spec["args"].([]interface{}))
-			for kk, vv := range spec["env"].(map[string]interface{}) {
-				exec.Env = append(exec.Env, clientcmdapi.ExecEnvVar{Name: kk, Value: vv.(string)})
-			}
-		} else {
-			return nil, fmt.Errorf("Failed to parse exec")
-		}
-		overrides.AuthInfo.Exec = exec
 	}
 
 	cc := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loader, overrides)
