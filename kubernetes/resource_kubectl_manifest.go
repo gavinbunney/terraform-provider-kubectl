@@ -83,9 +83,6 @@ func resourceKubectlManifest() *schema.Resource {
 			return nil
 		},
 		DeleteContext: func(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-			if d.Get("apply_only").(bool) {
-				return nil
-			}
 			if err := resourceKubectlManifestDelete(ctx, d, meta); err != nil {
 				return diag.FromErr(err)
 			}
@@ -616,6 +613,9 @@ func resourceKubectlManifestReadUsingClient(ctx context.Context, d *schema.Resou
 }
 
 func resourceKubectlManifestDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
+	if d.Get("apply_only").(bool) {
+		return nil
+	}
 	yamlBody := d.Get("yaml_body").(string)
 	manifest, err := yaml.ParseYAML(yamlBody)
 	if err != nil {
