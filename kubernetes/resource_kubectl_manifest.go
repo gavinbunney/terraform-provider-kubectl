@@ -187,6 +187,7 @@ metadata:
 				_ = d.Set("name", metaObjLive.GetName())
 				_ = d.Set("force_new", false)
 				_ = d.Set("server_side_apply", false)
+				_ = d.Set("apply_only", false)
 
 				// clear out fields user can't set to try and get parity with yaml_body
 				meta_v1_unstruct.RemoveNestedField(metaObjLive.Raw.Object, "metadata", "creationTimestamp")
@@ -396,6 +397,18 @@ var (
 			Optional:    true,
 			Default:     false,
 		},
+		"force_conflicts": {
+			Type:        schema.TypeBool,
+			Description: "Default false.",
+			Optional:    true,
+			Default:     false,
+		},
+		"apply_only": {
+			Type:        schema.TypeBool,
+			Description: "Apply only. In other words, it does not delete resource in any case.",
+			Optional:    true,
+			Default:     false,
+		},
 		"ignore_fields": {
 			Type:        schema.TypeList,
 			Elem:        &schema.Schema{Type: schema.TypeString},
@@ -476,6 +489,10 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 	if d.Get("server_side_apply").(bool) {
 		applyOptions.ServerSideApply = true
 		applyOptions.FieldManager = "kubectl"
+	}
+
+	if d.Get("force_conflicts").(bool) {
+		applyOptions.ForceConflicts = true
 	}
 
 	if manifest.HasNamespace() {
@@ -596,6 +613,9 @@ func resourceKubectlManifestReadUsingClient(ctx context.Context, d *schema.Resou
 }
 
 func resourceKubectlManifestDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
+	if d.Get("apply_only").(bool) {
+		return nil
+	}
 	yamlBody := d.Get("yaml_body").(string)
 	manifest, err := yaml.ParseYAML(yamlBody)
 	if err != nil {
