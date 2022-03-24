@@ -147,3 +147,4 @@ $ make testacc
 ### Inspiration
 
 Thanks to the original provider by [nabancard and lawrecncegripper](https://github.com/nabancard/terraform-provider-kubernetes-yaml) on the original base of this provider.
+
