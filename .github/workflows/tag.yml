@@ -13,21 +13,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Set up Go
-        uses: actions/setup-go@v2
+      - name: Set up GO 1.18.x
+        uses: actions/setup-go@v3
         with:
-          go-version: 1.16
+          go-version: '1.18'
+          check-latest: true
+
       - name: Import GPG key
         id: import_gpg
-        uses: crazy-max/ghaction-import-gpg@v3
+        uses: crazy-max/ghaction-import-gpg@v5
         with:
-          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v2
+        uses: goreleaser/goreleaser-action@v3
         with:
           version: latest
           args: release --rm-dist
@@ -35,6 +37,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
       - name: Upload assets
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           path: dist/*
