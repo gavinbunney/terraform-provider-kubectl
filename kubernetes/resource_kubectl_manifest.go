@@ -636,13 +636,28 @@ func resourceKubectlManifestDelete(ctx context.Context, d *schema.ResourceData, 
 	log.Printf("[INFO] %s perform delete of manifest", manifest)
 
 	propagationPolicy := meta_v1.DeletePropagationBackground
-	if d.Get("wait").(bool) {
+	waitForDelete := d.Get("wait").(bool)
+	if waitForDelete {
 		propagationPolicy = meta_v1.DeletePropagationForeground
 	}
 	err = restClient.ResourceInterface.Delete(ctx, manifest.GetName(), meta_v1.DeleteOptions{PropagationPolicy: &propagationPolicy})
 	resourceGone := errors.IsGone(err) || errors.IsNotFound(err)
 	if err != nil && !resourceGone {
 		return fmt.Errorf("%v failed to delete kubernetes resource: %+v", manifest, err)
+	}
+	// at the moment the foreground propagation policy does not behave as expected (it won't block waiting for deletion
+	// and it's up to us to check that the object has been successfully deleted.
+	for waitForDelete {
+		_, err := restClient.ResourceInterface.Get(ctx, manifest.GetName(), meta_v1.GetOptions{})
+		resourceGone = errors.IsGone(err) || errors.IsNotFound(err)
+		if err != nil {
+			if resourceGone {
+				break
+			}
+			return fmt.Errorf("%v failed to delete kubernetes resource: %+v", manifest, err)
+		}
+		log.Printf("[DEBUG] %v waiting for deletion of the resource:\n%s", manifest, yamlBody)
+		time.Sleep(time.Second * 10)
 	}
 
 	// Success remove it from state
