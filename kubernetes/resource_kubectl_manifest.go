@@ -4,19 +4,19 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+	"sort"
+	"strings"
+	"time"
+
 	"github.com/gavinbunney/terraform-provider-kubectl/flatten"
 	"github.com/gavinbunney/terraform-provider-kubectl/yaml"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"io/ioutil"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/kubectl/pkg/validation"
-	"os"
-	"sort"
-	"time"
-
-	"log"
-	"strings"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	k8sresource "k8s.io/cli-runtime/pkg/resource"
@@ -397,6 +397,12 @@ var (
 			Optional:    true,
 			Default:     false,
 		},
+		"field_manager": {
+			Type:        schema.TypeString,
+			Description: "Override the default field manager name. This is only relevent when using server-side apply.",
+			Optional:    true,
+			Default:     "kubectl",
+		},
 		"force_conflicts": {
 			Type:        schema.TypeBool,
 			Description: "Default false.",
@@ -488,7 +494,7 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 
 	if d.Get("server_side_apply").(bool) {
 		applyOptions.ServerSideApply = true
-		applyOptions.FieldManager = "kubectl"
+		applyOptions.FieldManager = d.Get("field_manager").(string)
 	}
 
 	if d.Get("force_conflicts").(bool) {
