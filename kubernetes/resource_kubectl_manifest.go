@@ -220,6 +220,8 @@ metadata:
 
 			if !d.NewValueKnown("yaml_body") {
 				log.Printf("[TRACE] yaml_body value interpolated, skipping customized diff")
+				d.SetNewComputed("yaml_body_parsed")
+				d.SetNewComputed("yaml_incluster")
 				return nil
 			}
 
