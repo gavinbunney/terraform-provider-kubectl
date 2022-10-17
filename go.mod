@@ -14,7 +14,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/zclconf/go-cty v1.8.4
 	github.com/zclconf/go-cty-yaml v1.0.2
-	google.golang.org/grpc v1.39.0
+	google.golang.org/grpc v1.50.1
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.21.3
 	k8s.io/apimachinery v0.21.3
@@ -58,7 +58,7 @@ require (
 	github.com/go-openapi/swag v0.19.5 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
-	github.com/golang/protobuf v1.4.3 // indirect
+	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v1.0.0 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
@@ -129,7 +129,7 @@ require (
 	google.golang.org/api v0.29.0 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20201110150050-8816d57aaa9a // indirect
-	google.golang.org/protobuf v1.25.0 // indirect
+	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 	k8s.io/component-base v0.21.3 // indirect
