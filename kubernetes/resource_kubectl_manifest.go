@@ -4,16 +4,17 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"sort"
+	"time"
+
 	"github.com/gavinbunney/terraform-provider-kubectl/flatten"
 	"github.com/gavinbunney/terraform-provider-kubectl/yaml"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"io/ioutil"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/kubectl/pkg/validation"
-	"os"
-	"sort"
-	"time"
 
 	"log"
 	"strings"
@@ -303,7 +304,7 @@ metadata:
 			return nil
 		},
 		Schema:        kubectlManifestSchema,
-		SchemaVersion: 1,
+		SchemaVersion: 2,
 		StateUpgraders: []schema.StateUpgrader{
 			{
 				Version: 0,
@@ -311,6 +312,19 @@ metadata:
 				Upgrade: func(ctx context.Context, rawState map[string]interface{}, meta interface{}) (map[string]interface{}, error) {
 					rawState["yaml_incluster"] = getFingerprint(rawState["yaml_incluster"].(string))
 					rawState["live_manifest_incluster"] = getFingerprint(rawState["live_manifest_incluster"].(string))
+					return rawState, nil
+				},
+			},
+			{
+				Version: 1,
+				Type:    resourceKubectlManifestV0().CoreConfigSchema().ImpliedType(),
+				Upgrade: func(ctx context.Context, rawState map[string]interface{}, meta interface{}) (map[string]interface{}, error) {
+					if val, found := rawState["force_conflicts"]; !found || val == nil {
+						rawState["force_conflicts"] = false
+					}
+					if val, found := rawState["apply_only"]; !found || val == nil {
+						rawState["apply_only"] = false
+					}
 					return rawState, nil
 				},
 			},
