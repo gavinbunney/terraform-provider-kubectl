@@ -10,7 +10,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"io/ioutil"
 	"k8s.io/cli-runtime/pkg/printers"
-	"k8s.io/kubectl/pkg/validation"
 	"os"
 	"sort"
 	"time"
@@ -466,24 +465,21 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 	_, _ = tmpfile.Write([]byte(yamlBody))
 	_ = tmpfile.Close()
 
-	applyOptions := apply.NewApplyOptions(genericclioptions.IOStreams{
-		In:     strings.NewReader(yamlBody),
-		Out:    log.Writer(),
-		ErrOut: log.Writer(),
-	})
-	applyOptions.Builder = k8sresource.NewBuilder(k8sresource.RESTClientGetter(meta.(*KubeProvider)))
-	applyOptions.DeleteOptions = &k8sdelete.DeleteOptions{
-		FilenameOptions: k8sresource.FilenameOptions{
-			Filenames: []string{tmpfile.Name()},
+	applyOptions := &apply.ApplyOptions{
+		IOStreams: genericclioptions.IOStreams{
+			In:     strings.NewReader(yamlBody),
+			Out:    log.Writer(),
+			ErrOut: log.Writer(),
 		},
-	}
-
-	applyOptions.ToPrinter = func(string) (printers.ResourcePrinter, error) {
-		return printers.NewDiscardingPrinter(), nil
-	}
-
-	if !d.Get("validate_schema").(bool) {
-		applyOptions.Validator = validation.NullSchema{}
+		Builder: k8sresource.NewBuilder(k8sresource.RESTClientGetter(meta.(*KubeProvider))),
+		DeleteOptions: &k8sdelete.DeleteOptions{
+			FilenameOptions: k8sresource.FilenameOptions{
+				Filenames: []string{tmpfile.Name()},
+			},
+		},
+		ToPrinter: func(string) (printers.ResourcePrinter, error) {
+			return printers.NewDiscardingPrinter(), nil
+		},
 	}
 
 	if d.Get("server_side_apply").(bool) {
