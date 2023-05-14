@@ -55,7 +55,8 @@ func (m *Manifest) GetSelfLink() string {
 }
 
 // buildSelfLink creates a selfLink of the form:
-//     "/apis/<apiVersion>/namespaces/<namespace>/<kind>s/<name>"
+//
+//	"/apis/<apiVersion>/namespaces/<namespace>/<kind>s/<name>"
 //
 // The selfLink attribute is not available in Kubernetes 1.20+ so we need
 // to generate a consistent, unique ID for our Terraform resources.
