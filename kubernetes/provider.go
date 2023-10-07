@@ -127,6 +127,12 @@ func Provider() *schema.Provider {
 				Description: "URL to the proxy to be used for all API requests",
 				DefaultFunc: schema.EnvDefaultFunc("KUBE_PROXY_URL", ""),
 			},
+			"tls_server_name": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Server name passed to the server for SNI and is used in the client to check server certificates against.",
+				DefaultFunc: schema.EnvDefaultFunc("KUBE_TLS_SERVER_NAME", ""),
+			},
 			"load_config_file": {
 				Type:        schema.TypeBool,
 				Optional:    true,
@@ -382,6 +388,9 @@ func initializeConfiguration(d *schema.ResourceData) (*restclient.Config, error)
 	}
 	if v, ok := d.GetOk("proxy_url"); ok {
 		overrides.ClusterDefaults.ProxyURL = v.(string)
+	}
+	if v, ok := d.GetOk("tls_server_name"); ok {
+		overrides.ClusterInfo.TLSServerName = v.(string)
 	}
 
 	cc := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loader, overrides)
