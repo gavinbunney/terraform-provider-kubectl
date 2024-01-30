@@ -19,7 +19,7 @@ data "kubectl_path_documents" "docs" {
 }
 
 resource "kubectl_manifest" "test" {
-    for_each  = toset(data.kubectl_path_documents.docs.documents)
+    for_each  = data.kubectl_path_documents.docs.manifests
     yaml_body = each.value
 }
 ```
