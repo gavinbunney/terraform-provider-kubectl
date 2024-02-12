@@ -1,8 +1,9 @@
 package yaml
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBuildSelfLink(t *testing.T) {

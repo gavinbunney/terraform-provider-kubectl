@@ -2,10 +2,11 @@ package yaml
 
 import (
 	"encoding/json"
+	"log"
+
 	"github.com/icza/dyno"
 	yamlParser "gopkg.in/yaml.v2"
 	meta_v1_unstruct "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"log"
 )
 
 // ParseYAML parses a yaml string into an Manifest.
