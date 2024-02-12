@@ -462,7 +462,9 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 	}
 
 	tmpfile, _ := os.CreateTemp("", "*kubectl_manifest.yaml")
+	fname := tmpfile.Name()
 	_, _ = tmpfile.Write([]byte(yamlBody))
+	_ = tmpfile.Close()
 
 	applyOptions := apply.NewApplyOptions(genericclioptions.IOStreams{
 		In:     strings.NewReader(yamlBody),
@@ -472,7 +474,7 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 	applyOptions.Builder = k8sresource.NewBuilder(k8sresource.RESTClientGetter(meta.(*KubeProvider)))
 	applyOptions.DeleteOptions = &k8sdelete.DeleteOptions{
 		FilenameOptions: k8sresource.FilenameOptions{
-			Filenames: []string{tmpfile.Name()},
+			Filenames: []string{fname},
 		},
 	}
 
@@ -500,8 +502,7 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 	log.Printf("[INFO] %s perform apply of manifest", manifest)
 
 	err = applyOptions.Run()
-	_ = tmpfile.Close()
-	_ = os.Remove(tmpfile.Name())
+	_ = os.Remove(fname)
 	if err != nil {
 		return fmt.Errorf("%v failed to run apply: %+v", manifest, err)
 	}
