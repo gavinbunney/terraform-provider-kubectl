@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gavinbunney/terraform-provider-kubectl/flatten"
-	"github.com/gavinbunney/terraform-provider-kubectl/yaml"
+	"github.com/altinity/terraform-provider-kubectl/flatten"
+	"github.com/altinity/terraform-provider-kubectl/yaml"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"k8s.io/cli-runtime/pkg/printers"

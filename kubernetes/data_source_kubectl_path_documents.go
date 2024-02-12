@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gavinbunney/terraform-provider-kubectl/yaml"
-	hcl "github.com/hashicorp/hcl/v2"
+	"github.com/altinity/terraform-provider-kubectl/yaml"
+	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/ext/tryfunc"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
