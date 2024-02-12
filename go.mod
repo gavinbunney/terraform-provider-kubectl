@@ -1,8 +1,6 @@
 module github.com/altinity/terraform-provider-kubectl
 
-go 1.21.5
-
-toolchain go1.21.7
+go 1.21.7
 
 require (
 	github.com/cenkalti/backoff/v4 v4.2.1
