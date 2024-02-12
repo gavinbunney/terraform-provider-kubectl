@@ -4,8 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"github.com/gavinbunney/terraform-provider-kubectl/yaml"
-	hcl "github.com/hashicorp/hcl/v2"
+	"io/ioutil"
+	"path/filepath"
+	"sort"
+	"strings"
+	"sync"
+
+	"github.com/altinity/terraform-provider-kubectl/yaml"
+	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/ext/tryfunc"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -16,11 +22,6 @@ import (
 	ctyconvert "github.com/zclconf/go-cty/cty/convert"
 	"github.com/zclconf/go-cty/cty/function"
 	"github.com/zclconf/go-cty/cty/function/stdlib"
-	"io/ioutil"
-	"path/filepath"
-	"sort"
-	"strings"
-	"sync"
 )
 
 func dataSourceKubectlPathDocuments() *schema.Resource {

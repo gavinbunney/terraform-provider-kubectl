@@ -4,8 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	yamlParser "gopkg.in/yaml.v2"
 	"strings"
+
+	yamlParser "gopkg.in/yaml.v2"
 )
 
 func SplitMultiDocumentYAML(multidoc string) (documents []string, err error) {

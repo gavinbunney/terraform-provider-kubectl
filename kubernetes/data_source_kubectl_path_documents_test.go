@@ -2,9 +2,10 @@ package kubernetes
 
 import (
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"regexp"
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
 func TestAccKubectlDataSourcePathDocuments_single(t *testing.T) {

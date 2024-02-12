@@ -7,7 +7,7 @@
       <env name="KUBECONFIG" value="$PROJECT_DIR$/scripts/kubeconfig.yaml" />
     </envs>
     <kind value="DIRECTORY" />
-    <package value="github.com/gavinbunney/terraform-provider-kubectl" />
+    <package value="github.com/altinity/terraform-provider-kubectl" />
     <directory value="$PROJECT_DIR$" />
     <filePath value="$PROJECT_DIR$" />
     <framework value="gotest" />
