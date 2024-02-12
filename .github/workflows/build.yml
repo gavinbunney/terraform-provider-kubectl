@@ -14,10 +14,10 @@ jobs:
       GO111MODULE: on
     steps:
       - uses: actions/checkout@v3
-      - name: Set up GO 1.18.x
+      - name: Set up GO 1.20.x
         uses: actions/setup-go@v3
         with:
-          go-version: '1.18'
+          go-version: '1.20'
           check-latest: true
 
       - run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
@@ -32,10 +32,10 @@ jobs:
       GO111MODULE: on
     steps:
       - uses: actions/checkout@v3
-      - name: Set up GO 1.18.x
+      - name: Set up GO 1.20.x
         uses: actions/setup-go@v3
         with:
-          go-version: '1.18'
+          go-version: '1.20'
           check-latest: true
 
       - run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
@@ -50,10 +50,10 @@ jobs:
       GO111MODULE: on
     steps:
       - uses: actions/checkout@v3
-      - name: Set up GO 1.18.x
+      - name: Set up GO 1.20.x
         uses: actions/setup-go@v3
         with:
-          go-version: '1.18'
+          go-version: '1.20'
           check-latest: true
 
       - run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
@@ -78,10 +78,10 @@ jobs:
       GO111MODULE: on
     steps:
       - uses: actions/checkout@v3
-      - name: Set up GO 1.18.x
+      - name: Set up GO 1.20.x
         uses: actions/setup-go@v3
         with:
-          go-version: '1.18'
+          go-version: '1.20'
           check-latest: true
 
       - run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
@@ -96,10 +96,10 @@ jobs:
       GO111MODULE: on
     steps:
       - uses: actions/checkout@v3
-      - name: Set up GO 1.18.x
+      - name: Set up GO 1.20.x
         uses: actions/setup-go@v3
         with:
-          go-version: '1.18'
+          go-version: '1.20'
           check-latest: true
 
       - run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
