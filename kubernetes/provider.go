@@ -166,7 +166,6 @@ func Provider() *schema.Provider {
 		DataSourcesMap: map[string]*schema.Resource{
 			"kubectl_filename_list":  dataSourceKubectlFilenameList(),
 			"kubectl_file_documents": dataSourceKubectlFileDocuments(),
-			"kubectl_path_documents": dataSourceKubectlPathDocuments(),
 			"kubectl_server_version": dataSourceKubectlServerVersion(),
 		},
 
@@ -217,7 +216,7 @@ func (p *KubeProvider) ToRESTMapper() (meta.RESTMapper, error) {
 	discoveryClient, _ := p.ToDiscoveryClient()
 	if discoveryClient != nil {
 		mapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
-		expander := restmapper.NewShortcutExpander(mapper, discoveryClient)
+		expander := restmapper.NewShortcutExpander(mapper, discoveryClient, func(string) {})
 		return expander, nil
 	}
 

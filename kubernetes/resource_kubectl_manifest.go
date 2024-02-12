@@ -14,10 +14,10 @@ import (
 	"github.com/altinity/terraform-provider-kubectl/yaml"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/kubectl/pkg/validation"
 
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 	k8sresource "k8s.io/cli-runtime/pkg/resource"
 	apiregistration "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"k8s.io/kubectl/pkg/cmd/apply"
@@ -466,11 +466,11 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 	_, _ = tmpfile.Write([]byte(yamlBody))
 	_ = tmpfile.Close()
 
-	applyOptions := apply.NewApplyOptions(genericclioptions.IOStreams{
+	applyOptions := apply.ApplyOptions{IOStreams: genericiooptions.IOStreams{
 		In:     strings.NewReader(yamlBody),
 		Out:    log.Writer(),
 		ErrOut: log.Writer(),
-	})
+	}}
 	applyOptions.Builder = k8sresource.NewBuilder(k8sresource.RESTClientGetter(meta.(*KubeProvider)))
 	applyOptions.DeleteOptions = &k8sdelete.DeleteOptions{
 		FilenameOptions: k8sresource.FilenameOptions{
