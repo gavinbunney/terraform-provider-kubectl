@@ -3,15 +3,16 @@ package kubernetes
 import (
 	"bytes"
 	"fmt"
-	"github.com/gavinbunney/terraform-provider-kubectl/yaml"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"log"
 	"os"
 	"regexp"
 	"testing"
+
+	"github.com/altinity/terraform-provider-kubectl/yaml"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestKubectlManifest_RetryOnFailure(t *testing.T) {

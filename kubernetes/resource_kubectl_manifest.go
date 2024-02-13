@@ -4,27 +4,26 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"github.com/gavinbunney/terraform-provider-kubectl/flatten"
-	"github.com/gavinbunney/terraform-provider-kubectl/yaml"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"io/ioutil"
-	"k8s.io/cli-runtime/pkg/printers"
-	"k8s.io/kubectl/pkg/validation"
+	"log"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
-	"log"
-	"strings"
+	"github.com/altinity/terraform-provider-kubectl/flatten"
+	"github.com/altinity/terraform-provider-kubectl/yaml"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
+	"k8s.io/cli-runtime/pkg/printers"
+	"k8s.io/kubectl/pkg/validation"
 
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 	k8sresource "k8s.io/cli-runtime/pkg/resource"
 	apiregistration "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"k8s.io/kubectl/pkg/cmd/apply"
 	k8sdelete "k8s.io/kubectl/pkg/cmd/delete"
 
-	backoff "github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 
 	apps_v1 "k8s.io/api/apps/v1"
@@ -462,19 +461,20 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 		return fmt.Errorf("%v failed to convert to yaml: %+v", manifest, err)
 	}
 
-	tmpfile, _ := ioutil.TempFile("", "*kubectl_manifest.yaml")
+	tmpfile, _ := os.CreateTemp("", "*kubectl_manifest.yaml")
+	fname := tmpfile.Name()
 	_, _ = tmpfile.Write([]byte(yamlBody))
 	_ = tmpfile.Close()
 
-	applyOptions := apply.NewApplyOptions(genericclioptions.IOStreams{
+	applyOptions := apply.ApplyOptions{IOStreams: genericiooptions.IOStreams{
 		In:     strings.NewReader(yamlBody),
 		Out:    log.Writer(),
 		ErrOut: log.Writer(),
-	})
+	}}
 	applyOptions.Builder = k8sresource.NewBuilder(k8sresource.RESTClientGetter(meta.(*KubeProvider)))
 	applyOptions.DeleteOptions = &k8sdelete.DeleteOptions{
 		FilenameOptions: k8sresource.FilenameOptions{
-			Filenames: []string{tmpfile.Name()},
+			Filenames: []string{fname},
 		},
 	}
 
@@ -502,7 +502,7 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 	log.Printf("[INFO] %s perform apply of manifest", manifest)
 
 	err = applyOptions.Run()
-	_ = os.Remove(tmpfile.Name())
+	_ = os.Remove(fname)
 	if err != nil {
 		return fmt.Errorf("%v failed to run apply: %+v", manifest, err)
 	}

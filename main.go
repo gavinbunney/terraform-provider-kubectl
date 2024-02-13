@@ -1,10 +1,10 @@
 package main
 
 import (
-	kubernetes "github.com/gavinbunney/terraform-provider-kubectl/kubernetes"
+	"github.com/altinity/terraform-provider-kubectl/kubernetes"
 	goplugin "github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov5"
-	tf5server "github.com/hashicorp/terraform-plugin-go/tfprotov5/server"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov5/tf5server"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
 	"google.golang.org/grpc"
