@@ -2,11 +2,14 @@ package yaml
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"log"
+	"strings"
 
 	"github.com/icza/dyno"
 	yamlParser "gopkg.in/yaml.v2"
-	meta_v1_unstruct "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	metav1unstruct "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // ParseYAML parses a yaml string into an Manifest.
@@ -16,27 +19,53 @@ import (
 // 2. Marshal map into JSON
 // 3. UnMarshal JSON into the Unstructured type so we get some K8s checking
 func ParseYAML(yaml string) (*Manifest, error) {
-	rawYamlParsed := &map[string]interface{}{}
-	err := yamlParser.Unmarshal([]byte(yaml), rawYamlParsed)
-	if err != nil {
-		return nil, err
+	var manifests []*Manifest
+
+	dec := yamlParser.NewDecoder(strings.NewReader(yaml))
+
+	for {
+		rawYamlParsed := &map[string]interface{}{}
+		err := dec.Decode(rawYamlParsed)
+
+		if rawYamlParsed == nil {
+			continue
+		}
+
+		if errors.Is(err, io.EOF) {
+			break
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		rawJSON, err := json.Marshal(dyno.ConvertMapI2MapS(*rawYamlParsed))
+		if err != nil {
+			return nil, err
+		}
+
+		unstruct := metav1unstruct.Unstructured{}
+		err = unstruct.UnmarshalJSON(rawJSON)
+		if err != nil {
+			return nil, err
+		}
+
+		manifest := &Manifest{
+			Raw: &unstruct,
+		}
+
+		manifests = append(manifests, manifest)
+
+		log.Printf("[DEBUG] %s Unstructed YAML: %+v\n", manifest, manifest.Raw.UnstructuredContent())
 	}
 
-	rawJSON, err := json.Marshal(dyno.ConvertMapI2MapS(*rawYamlParsed))
-	if err != nil {
-		return nil, err
+	if len(manifests) == 0 {
+		return nil, errors.New("no documents found in YAML")
 	}
 
-	unstruct := meta_v1_unstruct.Unstructured{}
-	err = unstruct.UnmarshalJSON(rawJSON)
-	if err != nil {
-		return nil, err
+	if len(manifests) > 1 {
+		return nil, errors.New("multiple documents found in YAML, split them up with the `kubectl_file_documents` data source")
 	}
 
-	manifest := &Manifest{
-		Raw: &unstruct,
-	}
-
-	log.Printf("[DEBUG] %s Unstructed YAML: %+v\n", manifest, manifest.Raw.UnstructuredContent())
-	return manifest, nil
+	return manifests[0], nil
 }
