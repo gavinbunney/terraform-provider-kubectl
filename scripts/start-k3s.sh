@@ -8,7 +8,7 @@ export KUBECONFIG="${DIR}/kubeconfig.yaml"
 export COMPOSE_PROJECT_NAME=k3s
 
 echo "--> Tearing down k3s in docker-compose"
-docker-compose down -v &>/dev/null || true
+docker compose down -v &>/dev/null || true
 rm -rf ${KUBECONFIG}
 sync; sync;
 
@@ -16,8 +16,8 @@ echo "--> Starting k3s in docker-compose"
 docker compose up -d --build
 
 echo "--> Allow insecure access to registry"
-docker exec k3s_node_1 /bin/sh -c 'mkdir -p /etc/rancher/k3s'
-docker cp "${DIR}/registries.yaml" k3s_node_1:/etc/rancher/k3s/registries.yaml
+docker exec k3s-node-1 /bin/sh -c 'mkdir -p /etc/rancher/k3s'
+docker cp "${DIR}/registries.yaml" k3s-node-1:/etc/rancher/k3s/registries.yaml
 
 echo "--> Wait for k3s kubeconfig file to exist"
 while [ ! -s "${KUBECONFIG}" ]  || [ ! -f "${KUBECONFIG}" ]; do sleep 1; done
@@ -56,6 +56,6 @@ done
 TIMER_DURATION=$(( SECONDS - TIMER_START ))
 
 # restart the node to make sure the registries configuration has been picked up
-docker restart k3s_node_1
+docker restart k3s-node-1
 
 echo "> Connection established to k3s in ${TIMER_DURATION}s"
