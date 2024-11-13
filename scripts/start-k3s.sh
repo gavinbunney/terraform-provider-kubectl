@@ -23,9 +23,9 @@ echo "--> Wait for k3s kubeconfig file to exist"
 while [ ! -s "${KUBECONFIG}" ]  || [ ! -f "${KUBECONFIG}" ]; do sleep 1; done
 while ! grep "127.0.0.1" "${KUBECONFIG}" &>/dev/null; do sleep 1; done
 
-HOST_IP=127.0.0.1
+HOST_IP=$(curl -4 ifconfig.me/ip)
 if [ -f /.dockerenv ]; then
-  HOST_IP="172.17.0.1"
+  HOST_IP="${HOST_IP}"
 fi
 
 echo "--> Update IP of server to match host ip ${HOST_IP}"
