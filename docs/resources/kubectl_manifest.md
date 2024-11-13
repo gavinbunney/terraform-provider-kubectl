@@ -7,7 +7,7 @@ This resource handles creation, deletion and even updating your kubernetes resou
 Behind the scenes, this provider uses the same capability as the `kubectl apply` command, that is, you can update the YAML inline and the resource will be updated in place in kubernetes.
 
 > **TIP:** This resource only supports a single yaml resource. If you have a list of documents in your yaml file,
-> use the [kubectl_path_documents](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs/data-sources/kubectl_path_documents) data source to split the files into individual resources.
+> use the [kubectl_path_documents](https://registry.terraform.io/providers/FindHotel/kubectl/latest/docs/data-sources/kubectl_path_documents) data source to split the files into individual resources.
 
 ## Example Usage
 

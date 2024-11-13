@@ -1,7 +1,5 @@
 # Kubernetes "kubectl" Provider 
 
-![Build Status](https://github.com/gavinbunney/terraform-provider-kubectl/actions/workflows/build.yml/badge.svg) [![user guide](https://img.shields.io/badge/-user%20guide-blue)](https://registry.terraform.io/providers/gavinbunney/kubectl)
-
 This provider is the best way of managing Kubernetes resources in Terraform, by allowing you to use the thing 
 Kubernetes loves best - yaml!
 
@@ -25,37 +23,12 @@ terraform {
 
   required_providers {
     kubectl = {
-      source  = "gavinbunney/kubectl"
-      version = ">= 1.7.0"
+      source  = "FindHotel/kubectl"
+      version = ">= 1.14.1"
     }
   }
 }
 ```
-
-### Terraform 0.12
-
-#### Install latest version
-
-The following one-liner script will fetch the latest provider version and download it to your `~/.terraform.d/plugins` directory.
-
-```bash
-$ mkdir -p ~/.terraform.d/plugins && \
-      curl -Ls https://api.github.com/repos/gavinbunney/terraform-provider-kubectl/releases/latest \
-      | jq -r ".assets[] | select(.browser_download_url | contains(\"$(uname -s | tr A-Z a-z)\")) | select(.browser_download_url | contains(\"amd64\")) | .browser_download_url" \
-      | xargs -n 1 curl -Lo ~/.terraform.d/plugins/terraform-provider-kubectl.zip && \
-      pushd ~/.terraform.d/plugins/ && \
-      unzip ~/.terraform.d/plugins/terraform-provider-kubectl.zip -d terraform-provider-kubectl-tmp && \
-      mv terraform-provider-kubectl-tmp/terraform-provider-kubectl* . && \
-      chmod +x terraform-provider-kubectl* && \
-      rm -rf terraform-provider-kubectl-tmp && \
-      rm -rf terraform-provider-kubectl.zip && \
-      popd
-```
-
-#### Install manually
-
-If you don't want to use the one-liner above, you can download a binary for your system from the [release page](https://github.com/gavinbunney/terraform-provider-kubectl/releases), 
-then either place it at the root of your Terraform folder or in the Terraform plugin folder on your system.
 
 ## Quick Start
 
@@ -63,8 +36,11 @@ then either place it at the root of your Terraform folder or in the Terraform pl
 provider "kubectl" {
   host                   = var.eks_cluster_endpoint
   cluster_ca_certificate = base64decode(var.eks_cluster_ca)
-  token                  = data.aws_eks_cluster_auth.main.token
-  load_config_file       = false
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    args        = ["eks", "get-token", "--cluster-name", var.cluster_name]
+    command     = "aws"
+  }
 }
 
 resource "kubectl_manifest" "test" {
@@ -96,7 +72,7 @@ YAML
 }
 ```
 
-See [User Guide](https://registry.terraform.io/providers/gavinbunney/kubectl/latest) for details on installation and all the provided data and resource types.
+See [User Guide](https://registry.terraform.io/providers/FindHotel/kubectl/latest) for details on installation and all the provided data and resource types.
 
 ---
 
@@ -110,13 +86,13 @@ To compile the provider, run `make build`. This will build the provider and put 
 ### Building The Provider
 
 ```sh
-$ go get github.com/gavinbunney/terraform-provider-kubectl
+$ go get github.com/FindHotel/terraform-provider-kubectl
 ```
 
 Enter the provider directory and build the provider
 
 ```sh
-$ cd $GOPATH/src/github.com/gavinbunney/terraform-provider-kubectl
+$ cd $GOPATH/src/github.com/FindHotel/terraform-provider-kubectl
 $ make build
 ```
 
