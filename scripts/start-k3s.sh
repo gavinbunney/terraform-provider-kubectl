@@ -13,7 +13,7 @@ rm -rf ${KUBECONFIG}
 sync; sync;
 
 echo "--> Starting k3s in docker-compose"
-docker-compose up -d --build
+docker compose up -d --build
 
 echo "--> Allow insecure access to registry"
 docker exec k3s_node_1 /bin/sh -c 'mkdir -p /etc/rancher/k3s'
