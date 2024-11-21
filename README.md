@@ -8,7 +8,7 @@ This yaml object is then tracked and handles creation, updates and deleted seaml
 
 A set of helpful data resources to process directories of yaml files and inline templating is available.
 
-This terraform-provider-kubectl provider has been originally forked from `gavinbunney/kubectl`.
+This terraform-provider-kubectl provider has been originally forked from `gavinbunney/kubectl` and synced with `alekc/kubectl`.
 
 ## Installation
 
