@@ -8,8 +8,7 @@ This yaml object is then tracked and handles creation, updates and deleted seaml
 
 A set of helpful data resources to process directories of yaml files and inline templating is available.
 
-This `terraform-provider-kubectl` provider has been used by many large Kubernetes installations to completely
-manage the lifecycle of Kubernetes resources. 
+This terraform-provider-kubectl provider has been originally forked from `gavinbunney/kubectl`.
 
 ## Installation
 
@@ -24,7 +23,7 @@ terraform {
   required_providers {
     kubectl = {
       source  = "FindHotel/kubectl"
-      version = ">= 1.14.1"
+      version = ">= 2.0.0"
     }
   }
 }
@@ -119,8 +118,3 @@ In order to run the full suite of Acceptance tests, run `make testacc`.
 ```sh
 $ make testacc
 ```
-
-### Inspiration
-
-Thanks to the original provider by [nabancard and lawrecncegripper](https://github.com/nabancard/terraform-provider-kubernetes-yaml) on the original base of this provider.
-

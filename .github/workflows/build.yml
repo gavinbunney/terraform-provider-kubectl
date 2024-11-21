@@ -1,109 +1,78 @@
 name: "Build"
 
 on:
-  push:
-    branches: [master]
   pull_request:
-    branches: [master]
+    branches:
+      - master
+
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  KUBECONFIG: ${{ github.workspace }}/.kube/config
 
 jobs:
-
-  build:
+  get_version_matrix:
     runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
+    steps:
+      - uses: actions/checkout@v4
+      - uses: imjasonh/setup-crane@v0.4
+      - id: get_version_matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          k8s_cycles="$(curl -sSfL https://endoflife.date/api/kubernetes.json | jq -rc '[sort_by(.releaseDate) | reverse | .[0:4] | .[].cycle]')"
+          kind_versions="$(crane ls docker.io/kindest/node | jq -sRrc --argjson cycles "${k8s_cycles}" 'split("\n") | [.[] | match("^v((\\d+\\.\\d+)\\.\\d+)$").captures | {cycle: .[1].string, version: .[0].string}] | group_by(.cycle) | [.[] | .[-1] | {(.cycle): {"version": .version}}] | reduce .[] as $item ({}; . *= $item) | . as $versions | [$cycles | .[] | $versions[.].version]')"
+
+          {
+            echo "terraform_versions=$(curl -sSfL https://endoflife.date/api/terraform.json | jq -rc '[sort_by(.releaseDate) | reverse | .[0:4] | .[].latest] + ["1.5.7"]')"
+            echo "k8s_versions=${kind_versions}"
+          } >> "${GITHUB_OUTPUT}"
+    outputs:
+      terraform_versions: ${{ steps.get_version_matrix.outputs.terraform_versions }}
+      k8s_versions: ${{ steps.get_version_matrix.outputs.k8s_versions }}
+
+  unit_test:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Set up GO 1.18.x
         uses: actions/setup-go@v5
         with:
-          go-version: '1.18'
-          check-latest: true
+          go-version-file: go.mod
+      - name: Unit tests
+        env:
+          GOPATH: /home/runner/go
+        run: |
+          make test
+          make vet
 
-      - run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-      - name: Setup Environment
-        run: make ci-build-setup
-      - name: Build
-        run: make build
-
-  test:
+  acc_test:
+    needs:
+      - get_version_matrix
+      - unit_test
     runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
+    strategy:
+      fail-fast: true
+      matrix:
+        terraform_version:  ${{ fromJson(needs.get_version_matrix.outputs.terraform_versions) }}
+        k8s_version:  ${{ fromJson(needs.get_version_matrix.outputs.k8s_versions) }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up GO 1.18.x
         uses: actions/setup-go@v5
         with:
-          go-version: '1.18'
-          check-latest: true
-
-      - run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-      - name: Setup Environment
-        run: make ci-build-setup
-      - name: Run unit tests
-        run: make test
-
-  testacc:
-    runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up GO 1.18.x
-        uses: actions/setup-go@v5
+          go-version-file: go.mod
+      - uses: helm/kind-action@v1.10.0
+        id: kind
         with:
-          go-version: '1.18'
-          check-latest: true
-
-      - run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Setup Environment
-        run: make ci-build-setup
-      - name: Start k3s
-        run: make k3s-start
-      - name: Run acceptance tests
+          wait: 2m
+          node_image: kindest/node:v${{ matrix.k8s_version }}
+      - name: Acceptance Tests
+        env:
+          KUBE_CONFIG_PATH: ${{ env.KUBECONFIG }}
+          TF_ACC_TERRAFORM_VERSION: ${{ matrix.terraform_version }}
+          TESTARGS: "-parallel 1"
         run: make testacc
-      - name: Stop k3s
-        run: make k3s-stop
-
-  fmtcheck:
-    runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up GO 1.18.x
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.18'
-          check-latest: true
-
-      - run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-      - name: Setup Environment
-        run: make ci-build-setup
-      - name: Format check
-        run: make fmtcheck
-
-  vet:
-    runs-on: ubuntu-latest
-    env:
-      GO111MODULE: on
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up GO 1.18.x
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.18'
-          check-latest: true
-
-      - run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-      - name: Setup Environment
-        run: make ci-build-setup
-      - name: Run vet
-        run: make vet

@@ -4,14 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strconv"
-	"strings"
-	"time"
-
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mitchellh/go-homedir"
@@ -27,6 +19,13 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	aggregator "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
+	"log"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
 )
 
 func Provider() *schema.Provider {
@@ -133,6 +132,12 @@ func Provider() *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("KUBE_LOAD_CONFIG_FILE", true),
 				Description: "Load local kubeconfig.",
 			},
+			"tls_server_name": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Server name passed to the server for SNI and is used in the client to check server certificates against.",
+				DefaultFunc: schema.EnvDefaultFunc("KUBE_TLS_SERVER_NAME", ""),
+			},
 			"exec": {
 				Type:     schema.TypeList,
 				Optional: true,
@@ -217,7 +222,9 @@ func (p *KubeProvider) ToRESTMapper() (meta.RESTMapper, error) {
 	discoveryClient, _ := p.ToDiscoveryClient()
 	if discoveryClient != nil {
 		mapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
-		expander := restmapper.NewShortcutExpander(mapper, discoveryClient)
+		expander := restmapper.NewShortcutExpander(mapper, discoveryClient, func(msg string) {
+			log.Printf("[WARN] error in expander: %s", msg)
+		})
 		return expander, nil
 	}
 
@@ -272,7 +279,7 @@ func initializeConfiguration(d *schema.ResourceData) (*restclient.Config, error)
 	overrides := &clientcmd.ConfigOverrides{}
 	loader := &clientcmd.ClientConfigLoadingRules{}
 
-	configPaths := []string{}
+	var configPaths []string
 
 	if v, ok := d.Get("config_path").(string); ok && v != "" {
 		configPaths = []string{v}
@@ -289,6 +296,7 @@ func initializeConfiguration(d *schema.ResourceData) (*restclient.Config, error)
 	if v, ok := d.GetOk("exec"); ok {
 		exec := &clientcmdapi.ExecConfig{}
 		if spec, ok := v.([]interface{})[0].(map[string]interface{}); ok {
+			exec.InteractiveMode = clientcmdapi.IfAvailableExecInteractiveMode
 			exec.APIVersion = spec["api_version"].(string)
 			exec.Command = spec["command"].(string)
 			exec.Args = expandStringSlice(spec["args"].([]interface{}))
@@ -382,6 +390,9 @@ func initializeConfiguration(d *schema.ResourceData) (*restclient.Config, error)
 	}
 	if v, ok := d.GetOk("proxy_url"); ok {
 		overrides.ClusterDefaults.ProxyURL = v.(string)
+	}
+	if v, ok := d.GetOk("tls_server_name"); ok {
+		overrides.ClusterInfo.TLSServerName = v.(string)
 	}
 
 	cc := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loader, overrides)

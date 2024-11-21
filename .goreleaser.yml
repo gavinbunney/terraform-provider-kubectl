@@ -45,3 +45,4 @@ signs:
       - "${artifact}"
 release:
   draft: false
+  prerelease: auto

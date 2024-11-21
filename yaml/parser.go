@@ -8,7 +8,7 @@ import (
 	"log"
 )
 
-// ParseYAML parses a yaml string into an Manifest.
+// ParseYAML parses a yaml string into a Manifest.
 //
 // To make things play nice we need the JSON representation of the object as the `RawObj`
 // 1. UnMarshal YAML into map

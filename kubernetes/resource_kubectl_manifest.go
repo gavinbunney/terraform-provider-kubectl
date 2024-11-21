@@ -3,33 +3,45 @@ package kubernetes
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
-	"github.com/gavinbunney/terraform-provider-kubectl/flatten"
-	"github.com/gavinbunney/terraform-provider-kubectl/yaml"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"io/ioutil"
-	"k8s.io/cli-runtime/pkg/printers"
-	"k8s.io/kubectl/pkg/validation"
+	"log"
 	"os"
+	"regexp"
 	"sort"
+	"strings"
 	"time"
 
-	"log"
-	"strings"
-
-	"k8s.io/cli-runtime/pkg/genericclioptions"
-	k8sresource "k8s.io/cli-runtime/pkg/resource"
-	apiregistration "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
-	"k8s.io/kubectl/pkg/cmd/apply"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	k8sdelete "k8s.io/kubectl/pkg/cmd/delete"
+
+	"github.com/alekc/terraform-provider-kubectl/flatten"
+	"github.com/alekc/terraform-provider-kubectl/internal/types"
+
+	"github.com/alekc/terraform-provider-kubectl/yaml"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	validate2 "github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/mitchellh/mapstructure"
+	"github.com/thedevsaddam/gojsonq/v2"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/printers"
+	"k8s.io/kubectl/pkg/scheme"
+	"k8s.io/kubectl/pkg/validation"
 
 	backoff "github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	apiMachineryTypes "k8s.io/apimachinery/pkg/types"
+	k8sresource "k8s.io/cli-runtime/pkg/resource"
+	apiregistration "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
+	"k8s.io/kubectl/pkg/cmd/apply"
 
 	apps_v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	meta_v1_unstruct "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	yamlWriter "sigs.k8s.io/yaml"
@@ -47,39 +59,35 @@ func resourceKubectlManifest() *schema.Resource {
 
 	return &schema.Resource{
 		CreateContext: func(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+			// if there is no retry required, perform a simple apply
+			if kubectlApplyRetryCount == 0 {
+				if applyErr := resourceKubectlManifestApply(ctx, d, meta); applyErr != nil {
+					return diag.FromErr(applyErr)
+				}
+			}
+			// retry count is not 0, so we need to leverage exponential backoff and multiple retries
 			exponentialBackoffConfig := backoff.NewExponentialBackOff()
 			exponentialBackoffConfig.InitialInterval = 3 * time.Second
 			exponentialBackoffConfig.MaxInterval = 30 * time.Second
 
-			if kubectlApplyRetryCount > 0 {
-				retryConfig := backoff.WithMaxRetries(exponentialBackoffConfig, kubectlApplyRetryCount)
-				retryErr := backoff.Retry(func() error {
-					err := resourceKubectlManifestApply(ctx, d, meta)
-					if err != nil {
-						log.Printf("[ERROR] creating manifest failed: %+v", err)
-					}
-
-					return err
-				}, retryConfig)
-
-				if retryErr != nil {
-					return diag.FromErr(retryErr)
+			retryConfig := backoff.WithMaxRetries(exponentialBackoffConfig, kubectlApplyRetryCount)
+			retryErr := backoff.Retry(func() error {
+				err := resourceKubectlManifestApply(ctx, d, meta)
+				if err != nil {
+					log.Printf("[ERROR] creating manifest failed: %+v", err)
 				}
+				return err
+			}, retryConfig)
 
-				return nil
-			} else {
-				if applyErr := resourceKubectlManifestApply(ctx, d, meta); applyErr != nil {
-					return diag.FromErr(applyErr)
-				}
-
-				return nil
+			if retryErr != nil {
+				return diag.FromErr(retryErr)
 			}
+			return nil
 		},
 		ReadContext: func(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 			if err := resourceKubectlManifestRead(ctx, d, meta); err != nil {
 				return diag.FromErr(err)
 			}
-
 			return nil
 		},
 		DeleteContext: func(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -220,6 +228,8 @@ metadata:
 
 			if !d.NewValueKnown("yaml_body") {
 				log.Printf("[TRACE] yaml_body value interpolated, skipping customized diff")
+				d.SetNewComputed("yaml_body_parsed")
+				d.SetNewComputed("yaml_incluster")
 				return nil
 			}
 
@@ -255,7 +265,7 @@ metadata:
 			if hasSensitiveFields {
 				sensitiveFields = expandStringList(sensitiveFieldsRaw.([]interface{}))
 			} else if parsedYaml.GetKind() == "Secret" && parsedYaml.GetAPIVersion() == "v1" {
-				sensitiveFields = []string{"data"}
+				sensitiveFields = []string{"data", "stringData"}
 			}
 
 			for _, s := range sensitiveFields {
@@ -296,7 +306,12 @@ metadata:
 			stateYaml := d.Get("yaml_incluster").(string)
 			liveStateYaml := d.Get("live_manifest_incluster").(string)
 			if stateYaml != liveStateYaml {
-				log.Printf("[TRACE] DETECTED YAML STATE %s vs %s", stateYaml, liveStateYaml)
+				log.Printf("[TRACE] DETECTED YAML STATE DIFFERENCE %s vs %s", stateYaml, liveStateYaml)
+				// disabled due to a bug in go-diff library. See https://github.com/alekc/terraform-provider-kubectl/issues/181
+				//dmp := diffmatchpatch.New()
+				//patches := dmp.PatchMake(stateYaml, liveStateYaml)
+				//patchText := dmp.PatchToText(patches)
+				//log.Printf("[DEBUG] DETECTED YAML INCLUSTER STATE DIFFERENCE. Patch diff: %s", patchText)
 				_ = d.SetNewComputed("yaml_incluster")
 			}
 
@@ -397,6 +412,12 @@ var (
 			Optional:    true,
 			Default:     false,
 		},
+		"field_manager": {
+			Type:        schema.TypeString,
+			Description: "Override the default field manager name. This is only relevant when using server-side apply.",
+			Optional:    true,
+			Default:     "kubectl",
+		},
 		"force_conflicts": {
 			Type:        schema.TypeBool,
 			Description: "Default false.",
@@ -428,16 +449,100 @@ var (
 		},
 		"validate_schema": {
 			Type:        schema.TypeBool,
-			Description: "Default to true (validate). Set this flag to not validate the yaml schema before appying.",
+			Description: "Default to true (validate). Set this flag to not validate the yaml schema before applying.",
 			Optional:    true,
 			Default:     true,
+		},
+		"wait_for": {
+			Type:        schema.TypeList,
+			Optional:    true,
+			Description: "If set, will wait until either all of conditions are satisfied, or until timeout is reached",
+			MaxItems:    1,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"condition": {
+						Type:        schema.TypeList,
+						MinItems:    0,
+						Description: "Condition criteria for a Status Condition",
+						Optional:    true,
+						Elem: &schema.Resource{
+							Schema: map[string]*schema.Schema{
+								"type": {
+									Type:        schema.TypeString,
+									Description: "Type as expected from the resulting Condition object",
+									Required:    true,
+								},
+								"status": {
+									Type:        schema.TypeString,
+									Description: "Status to wait for in the resulting Condition object",
+									Required:    true,
+								},
+							},
+						},
+					},
+					"field": {
+						Type:        schema.TypeList,
+						MinItems:    0,
+						Description: "Condition criteria for a field",
+						Optional:    true,
+						Elem: &schema.Resource{
+							Schema: map[string]*schema.Schema{
+								"key": {
+									Type:        schema.TypeString,
+									Description: "Key which should be matched from resulting object",
+									Required:    true,
+								},
+								"value": {
+									Type:        schema.TypeString,
+									Description: "Value to wait for",
+									Required:    true,
+								},
+								"value_type": {
+									Type:             schema.TypeString,
+									Description:      "Value type. Can be either a `eq` (equivalent) or `regex`",
+									ValidateDiagFunc: validate2.ToDiagFunc(validate2.StringInSlice([]string{"eq", "regex"}, false)),
+									Default:          "eq",
+									Optional:         true,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"delete_cascade": {
+			Type:             schema.TypeString,
+			Description:      "Cascade mode for delete operations, explicitly setting this to Background to match kubectl is recommended. Default is Background unless wait has been set when it will be Foreground.",
+			Optional:         true,
+			ValidateDiagFunc: validate2.ToDiagFunc(validate2.StringInSlice([]string{string(meta_v1.DeletePropagationBackground), string(meta_v1.DeletePropagationForeground)}, false)),
 		},
 	}
 )
 
-func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
+// newApplyOptions defines flags and other configuration parameters for the `apply` command
+func newApplyOptions(yamlBody string) *apply.ApplyOptions {
+	applyOptions := &apply.ApplyOptions{
+		PrintFlags: genericclioptions.NewPrintFlags("created").WithTypeSetter(scheme.Scheme),
 
+		IOStreams: genericiooptions.IOStreams{
+			In:     strings.NewReader(yamlBody),
+			Out:    log.Writer(),
+			ErrOut: log.Writer(),
+		},
+
+		Overwrite:    true,
+		OpenAPIPatch: true,
+		Recorder:     genericclioptions.NoopRecorder{},
+
+		VisitedUids:       sets.New[apiMachineryTypes.UID](),
+		VisitedNamespaces: sets.New[string](),
+	}
+	return applyOptions
+}
+func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
 	yamlBody := d.Get("yaml_body").(string)
+
+	// convert hcl into an unstructured object
 	manifest, err := yaml.ParseYAML(yamlBody)
 	if err != nil {
 		return fmt.Errorf("failed to parse kubernetes resource: %+v", err)
@@ -462,39 +567,30 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 		return fmt.Errorf("%v failed to convert to yaml: %+v", manifest, err)
 	}
 
-	tmpfile, _ := ioutil.TempFile("", "*kubectl_manifest.yaml")
+	tmpfile, _ := os.CreateTemp("", "*kubectl_manifest.yaml")
 	_, _ = tmpfile.Write([]byte(yamlBody))
 	_ = tmpfile.Close()
 
-	applyOptions := apply.NewApplyOptions(genericclioptions.IOStreams{
-		In:     strings.NewReader(yamlBody),
-		Out:    log.Writer(),
-		ErrOut: log.Writer(),
-	})
+	applyOptions := newApplyOptions(yamlBody)
 	applyOptions.Builder = k8sresource.NewBuilder(k8sresource.RESTClientGetter(meta.(*KubeProvider)))
 	applyOptions.DeleteOptions = &k8sdelete.DeleteOptions{
 		FilenameOptions: k8sresource.FilenameOptions{
 			Filenames: []string{tmpfile.Name()},
 		},
 	}
-
 	applyOptions.ToPrinter = func(string) (printers.ResourcePrinter, error) {
 		return printers.NewDiscardingPrinter(), nil
 	}
-
 	if !d.Get("validate_schema").(bool) {
 		applyOptions.Validator = validation.NullSchema{}
 	}
-
 	if d.Get("server_side_apply").(bool) {
 		applyOptions.ServerSideApply = true
-		applyOptions.FieldManager = "kubectl"
+		applyOptions.FieldManager = d.Get("field_manager").(string)
 	}
-
 	if d.Get("force_conflicts").(bool) {
 		applyOptions.ForceConflicts = true
 	}
-
 	if manifest.HasNamespace() {
 		applyOptions.Namespace = manifest.GetNamespace()
 	}
@@ -514,7 +610,7 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 	if err != nil {
 		return fmt.Errorf("%v failed to fetch resource from kubernetes: %+v", manifest, err)
 	}
-
+	// set a wrapper from unstructured raw manifest
 	response := yaml.NewFromUnstructured(rawResponse)
 
 	d.SetId(response.GetSelfLink())
@@ -533,23 +629,54 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 	if d.Get("wait_for_rollout").(bool) {
 		timeout := d.Timeout(schema.TimeoutCreate)
 
-		if manifest.GetKind() == "Deployment" {
-			log.Printf("[INFO] %v waiting for deployment rollout for %vmin", manifest, timeout.Minutes())
-			err = resource.RetryContext(ctx, timeout,
-				waitForDeploymentReplicasFunc(ctx, meta.(*KubeProvider), manifest.GetNamespace(), manifest.GetName()))
+		switch {
+		case manifest.GetKind() == "Deployment":
+			log.Printf("[INFO] %v waiting for Deployment rollout for %vmin", manifest, timeout.Minutes())
+			err = waitForDeploymentRollout(ctx, meta.(*KubeProvider), manifest.GetNamespace(), manifest.GetName(), timeout)
 			if err != nil {
 				return err
 			}
-		} else if manifest.GetKind() == "APIService" && manifest.GetAPIVersion() == "apiregistration.k8s.io/v1" {
-			log.Printf("[INFO] %v waiting for APIService rollout for %vmin", manifest, timeout.Minutes())
-			err = resource.RetryContext(ctx, timeout,
-				waitForAPIServiceAvailableFunc(ctx, meta.(*KubeProvider), manifest.GetName()))
+		case manifest.GetKind() == "DaemonSet":
+			log.Printf("[INFO] %v waiting for DaemonSet rollout for %vmin", manifest, timeout.Minutes())
+			err = waitForDaemonSetRollout(ctx, meta.(*KubeProvider), manifest.GetNamespace(), manifest.GetName(), timeout)
+			if err != nil {
+				return err
+			}
+		case manifest.GetKind() == "StatefulSet":
+			log.Printf("[INFO] %v waiting for v rollout for %vmin", manifest, timeout.Minutes())
+			err = waitForStatefulSetRollout(ctx, meta.(*KubeProvider), manifest.GetNamespace(), manifest.GetName(), timeout)
+			if err != nil {
+				return err
+			}
+		case manifest.GetKind() == "APIService" && manifest.GetAPIVersion() == "apiregistration.k8s.io/v1":
+			log.Printf("[INFO] %v waiting for APIService for %vmin", manifest, timeout.Minutes())
+			err = waitForApiService(ctx, meta.(*KubeProvider), manifest.GetName(), timeout)
 			if err != nil {
 				return err
 			}
 		}
 	}
 
+	if v, ok := d.GetOk("wait_for"); ok {
+		timeout := d.Timeout(schema.TimeoutCreate)
+
+		waitFor := types.WaitFor{}
+		if err := mapstructure.Decode((v.([]interface{}))[0], &waitFor); err != nil {
+			return fmt.Errorf("cannot decode wait for conditions %v", err)
+		}
+		if len(waitFor.Field) == 0 && len(waitFor.Condition) == 0 {
+			return fmt.Errorf("at least one of `field` or `condition` must be provided in `wait_for` block")
+		}
+
+		log.Printf("[INFO] %v waiting for wait conditions for %vmin", manifest, timeout.Minutes())
+		err = waitForConditions(ctx, restClient, waitFor.Field, waitFor.Condition, manifest.GetName(), timeout)
+		if err != nil {
+			return err
+		}
+	}
+
+	// So far we have set (live_)uid and (live_)yaml_incluster.
+	// Perform the full read of the object
 	return resourceKubectlManifestReadUsingClient(ctx, d, meta, restClient.ResourceInterface, manifest)
 }
 
@@ -580,20 +707,20 @@ func resourceKubectlManifestRead(ctx context.Context, d *schema.ResourceData, me
 	return resourceKubectlManifestReadUsingClient(ctx, d, meta, restClient.ResourceInterface, manifest)
 }
 
+// resourceKubectlManifestReadUsingClient reads the object data from the cluster based on it's UID
+// and sets live_uid and live_manifest_incluster to the latest values
 func resourceKubectlManifestReadUsingClient(ctx context.Context, d *schema.ResourceData, meta interface{}, client dynamic.ResourceInterface, manifest *yaml.Manifest) error {
 
 	log.Printf("[DEBUG] %v fetch from kubernetes", manifest)
 
 	// Get the resource from Kubernetes
 	metaObjLiveRaw, err := client.Get(ctx, manifest.GetName(), meta_v1.GetOptions{})
-	resourceGone := errors.IsGone(err) || errors.IsNotFound(err)
-	if resourceGone {
-		log.Printf("[WARN] kubernetes resource (%s) not found, removing from state", d.Id())
-		d.SetId("")
-		return nil
-	}
-
 	if err != nil {
+		if errors.IsGone(err) || errors.IsNotFound(err) {
+			log.Printf("[WARN] kubernetes resource (%s) not found, removing from state", d.Id())
+			d.SetId("")
+			return nil
+		}
 		return fmt.Errorf("%v failed to get resource from kubernetes: %+v", manifest, err)
 	}
 
@@ -635,29 +762,34 @@ func resourceKubectlManifestDelete(ctx context.Context, d *schema.ResourceData, 
 
 	log.Printf("[INFO] %s perform delete of manifest", manifest)
 
-	propagationPolicy := meta_v1.DeletePropagationBackground
-	waitForDelete := d.Get("wait").(bool)
-	if waitForDelete {
+	wait := d.Get("wait").(bool)
+
+	var propagationPolicy meta_v1.DeletionPropagation
+	cascadeInput := d.Get("delete_cascade").(string)
+	if len(cascadeInput) > 0 {
+		propagationPolicy = meta_v1.DeletionPropagation(cascadeInput)
+	} else if wait {
 		propagationPolicy = meta_v1.DeletePropagationForeground
+	} else {
+		propagationPolicy = meta_v1.DeletePropagationBackground
 	}
+
 	err = restClient.ResourceInterface.Delete(ctx, manifest.GetName(), meta_v1.DeleteOptions{PropagationPolicy: &propagationPolicy})
 	resourceGone := errors.IsGone(err) || errors.IsNotFound(err)
 	if err != nil && !resourceGone {
 		return fmt.Errorf("%v failed to delete kubernetes resource: %+v", manifest, err)
 	}
-	// at the moment the foreground propagation policy does not behave as expected (it won't block waiting for deletion
-	// and it's up to us to check that the object has been successfully deleted.
-	for waitForDelete {
-		_, err := restClient.ResourceInterface.Get(ctx, manifest.GetName(), meta_v1.GetOptions{})
-		resourceGone = errors.IsGone(err) || errors.IsNotFound(err)
+
+	// The rest client doesn't wait for the delete so we need custom logic
+	if wait && !resourceGone {
+		log.Printf("[INFO] %s waiting for delete of manifest to complete", manifest)
+
+		timeout := d.Timeout(schema.TimeoutDelete)
+
+		err = waitForDelete(ctx, restClient, manifest.GetName(), timeout)
 		if err != nil {
-			if resourceGone {
-				break
-			}
-			return fmt.Errorf("%v failed to delete kubernetes resource: %+v", manifest, err)
+			return err
 		}
-		log.Printf("[DEBUG] %v waiting for deletion of the resource:\n%s", manifest, yamlBody)
-		time.Sleep(time.Second * 10)
 	}
 
 	// Success remove it from state
@@ -703,6 +835,7 @@ func RestClientResultFromInvalidTypeErr(err error) *RestClientResult {
 	}
 }
 
+// getRestClientFromUnstructured creates a dynamic k8s client based on the provided manifest
 func getRestClientFromUnstructured(manifest *yaml.Manifest, provider *KubeProvider) *RestClientResult {
 
 	doGetRestClientFromUnstructured := func(manifest *yaml.Manifest, provider *KubeProvider) *RestClientResult {
@@ -738,15 +871,21 @@ func getRestClientFromUnstructured(manifest *yaml.Manifest, provider *KubeProvid
 			}
 		}
 
-		resourceStruct := k8sschema.GroupVersionResource{Group: apiResource.Group, Version: apiResource.Version, Resource: apiResource.Name}
+		resourceStruct := k8sschema.GroupVersionResource{
+			Group:    apiResource.Group,
+			Version:  apiResource.Version,
+			Resource: apiResource.Name,
+		}
 		// For core services (ServiceAccount, Service etc) the group is incorrectly parsed.
 		// "v1" should be empty group and "v1" for version
 		if resourceStruct.Group == "v1" && resourceStruct.Version == "" {
 			resourceStruct.Group = ""
 			resourceStruct.Version = "v1"
 		}
+		// get dynamic client based on the found resource struct
 		client := dynamic.NewForConfigOrDie(&provider.RestConfig).Resource(resourceStruct)
 
+		// if the resource is namespaced and doesn't have a namespace defined, set it to default
 		if apiResource.Namespaced {
 			if !manifest.HasNamespace() {
 				manifest.SetNamespace("default")
@@ -780,25 +919,125 @@ func getRestClientFromUnstructured(manifest *yaml.Manifest, provider *KubeProvid
 // checks there is a resource for the APIVersion and Kind defined in the 'resource'
 // if found it returns true and the APIResource which matched
 func checkAPIResourceIsPresent(available []*meta_v1.APIResourceList, resource meta_v1_unstruct.Unstructured) (*meta_v1.APIResource, bool) {
+	resourceGroupVersionKind := resource.GroupVersionKind()
 	for _, rList := range available {
 		if rList == nil {
 			continue
 		}
 		group := rList.GroupVersion
 		for _, r := range rList.APIResources {
-			if group == resource.GroupVersionKind().GroupVersion().String() && r.Kind == resource.GetKind() {
-				r.Group = rList.GroupVersion
-				r.Kind = rList.Kind
+			if group == resourceGroupVersionKind.GroupVersion().String() && r.Kind == resource.GetKind() {
+				r.Group = resourceGroupVersionKind.Group
+				r.Version = resourceGroupVersionKind.Version
+				r.Kind = resourceGroupVersionKind.Kind
 				return &r, true
 			}
 		}
 	}
+	log.Printf("[ERROR] Could not find a valid ApiResource for this manifest %s/%s/%s", resourceGroupVersionKind.Group, resourceGroupVersionKind.Version, resourceGroupVersionKind.Kind)
 	return nil, false
 }
 
-// GetDeploymentConditionInternal returns the condition with the provided type.
-// Borrowed from: https://github.com/kubernetes/kubernetes/blob/master/pkg/controller/deployment/util/deployment_util.go#L135
-func GetDeploymentCondition(status apps_v1.DeploymentStatus, condType apps_v1.DeploymentConditionType) *apps_v1.DeploymentCondition {
+func waitForDelete(ctx context.Context, restClient *RestClientResult, name string, timeout time.Duration) error {
+	timeoutSeconds := int64(timeout.Seconds())
+
+	rawResponse, err := restClient.ResourceInterface.Get(ctx, name, meta_v1.GetOptions{})
+	resourceGone := errors.IsGone(err) || errors.IsNotFound(err)
+	if err != nil && !resourceGone {
+		return err
+	}
+
+	if !resourceGone {
+		resourceVersion, _, err := unstructured.NestedString(rawResponse.Object, "metadata", "resourceVersion")
+		if err != nil {
+			return err
+		}
+
+		watcher, err := restClient.ResourceInterface.Watch(
+			ctx,
+			meta_v1.ListOptions{
+				Watch:           true,
+				TimeoutSeconds:  &timeoutSeconds,
+				FieldSelector:   fields.OneTermEqualSelector("metadata.name", name).String(),
+				ResourceVersion: resourceVersion,
+			})
+		if err != nil {
+			return err
+		}
+
+		defer watcher.Stop()
+
+		deleted := false
+		for !deleted {
+			select {
+			case event := <-watcher.ResultChan():
+				if event.Type == watch.Deleted {
+					deleted = true
+				}
+
+			case <-ctx.Done():
+				return fmt.Errorf("%s failed to delete resource", name)
+			}
+		}
+	}
+
+	return nil
+}
+
+func waitForDeploymentRollout(ctx context.Context, provider *KubeProvider, ns string, name string, timeout time.Duration) error {
+	// Borrowed from: https://github.com/kubernetes/kubectl/blob/c4be63c54b7188502c1a63bb884a0b05fac51ebd/pkg/polymorphichelpers/rollout_status.go#L59
+
+	timeoutSeconds := int64(timeout.Seconds())
+
+	watcher, err := provider.MainClientset.AppsV1().Deployments(ns).Watch(ctx, meta_v1.ListOptions{Watch: true, TimeoutSeconds: &timeoutSeconds, FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String()})
+	if err != nil {
+		return err
+	}
+
+	defer watcher.Stop()
+
+	done := false
+	for !done {
+		select {
+		case event := <-watcher.ResultChan():
+			if event.Type == watch.Modified {
+				deployment, ok := event.Object.(*apps_v1.Deployment)
+				if !ok {
+					return fmt.Errorf("%s could not cast to Deployment", name)
+				}
+
+				if deployment.Generation <= deployment.Status.ObservedGeneration {
+					condition := getDeploymentCondition(deployment.Status, apps_v1.DeploymentProgressing)
+					if condition != nil && condition.Reason == TimedOutReason {
+						continue
+					}
+
+					if deployment.Spec.Replicas != nil && deployment.Status.UpdatedReplicas < *deployment.Spec.Replicas {
+						continue
+					}
+
+					if deployment.Status.Replicas > deployment.Status.UpdatedReplicas {
+						continue
+					}
+
+					if deployment.Status.AvailableReplicas < deployment.Status.UpdatedReplicas {
+						continue
+					}
+
+					done = true
+				}
+			}
+
+		case <-ctx.Done():
+			return fmt.Errorf("%s failed to rollout Deployment", name)
+		}
+	}
+
+	return nil
+}
+
+func getDeploymentCondition(status apps_v1.DeploymentStatus, condType apps_v1.DeploymentConditionType) *apps_v1.DeploymentCondition {
+	// Borrowed from: https://github.com/kubernetes/kubectl/blob/c4be63c54b7188502c1a63bb884a0b05fac51ebd/pkg/util/deployment/deployment.go#L60
 	for i := range status.Conditions {
 		c := status.Conditions[i]
 		if c.Type == condType {
@@ -808,56 +1047,249 @@ func GetDeploymentCondition(status apps_v1.DeploymentStatus, condType apps_v1.De
 	return nil
 }
 
-func waitForDeploymentReplicasFunc(ctx context.Context, provider *KubeProvider, ns, name string) resource.RetryFunc {
-	return func() *resource.RetryError {
+func waitForDaemonSetRollout(ctx context.Context, provider *KubeProvider, ns string, name string, timeout time.Duration) error {
+	// Borrowed from: https://github.com/kubernetes/kubectl/blob/c4be63c54b7188502c1a63bb884a0b05fac51ebd/pkg/polymorphichelpers/rollout_status.go#L95
 
-		// Query the deployment to get a status update.
-		dply, err := provider.MainClientset.AppsV1().Deployments(ns).Get(ctx, name, meta_v1.GetOptions{})
-		if err != nil {
-			return resource.NonRetryableError(err)
-		}
+	timeoutSeconds := int64(timeout.Seconds())
 
-		if dply.Generation <= dply.Status.ObservedGeneration {
-			cond := GetDeploymentCondition(dply.Status, apps_v1.DeploymentProgressing)
-			if cond != nil && cond.Reason == TimedOutReason {
-				err := fmt.Errorf("Deployment exceeded its progress deadline: %v", cond.String())
-				return resource.NonRetryableError(err)
-			}
-
-			if dply.Status.UpdatedReplicas < *dply.Spec.Replicas {
-				return resource.RetryableError(fmt.Errorf("Waiting for rollout to finish: %d out of %d new replicas have been updated...", dply.Status.UpdatedReplicas, dply.Spec.Replicas))
-			}
-
-			if dply.Status.Replicas > dply.Status.UpdatedReplicas {
-				return resource.RetryableError(fmt.Errorf("Waiting for rollout to finish: %d old replicas are pending termination...", dply.Status.Replicas-dply.Status.UpdatedReplicas))
-			}
-
-			if dply.Status.AvailableReplicas < dply.Status.UpdatedReplicas {
-				return resource.RetryableError(fmt.Errorf("Waiting for rollout to finish: %d of %d updated replicas are available...", dply.Status.AvailableReplicas, dply.Status.UpdatedReplicas))
-			}
-		} else if dply.Status.ObservedGeneration == 0 {
-			return resource.RetryableError(fmt.Errorf("Waiting for rollout to start"))
-		}
-		return nil
+	watcher, err := provider.MainClientset.AppsV1().DaemonSets(ns).Watch(ctx, meta_v1.ListOptions{Watch: true, TimeoutSeconds: &timeoutSeconds, FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String()})
+	if err != nil {
+		return err
 	}
+
+	defer watcher.Stop()
+
+	done := false
+	for !done {
+		select {
+		case event := <-watcher.ResultChan():
+			if event.Type == watch.Modified {
+				daemon, ok := event.Object.(*apps_v1.DaemonSet)
+				if !ok {
+					return fmt.Errorf("%s could not cast to DaemonSet", name)
+				}
+
+				if daemon.Spec.UpdateStrategy.Type != apps_v1.RollingUpdateDaemonSetStrategyType {
+					done = true
+					continue
+				}
+
+				if daemon.Generation <= daemon.Status.ObservedGeneration {
+					if daemon.Status.UpdatedNumberScheduled < daemon.Status.DesiredNumberScheduled {
+						continue
+					}
+
+					if daemon.Status.NumberAvailable < daemon.Status.DesiredNumberScheduled {
+						continue
+					}
+
+					done = true
+				}
+			}
+
+		case <-ctx.Done():
+			return fmt.Errorf("%s failed to rollout DaemonSet", name)
+		}
+	}
+
+	return nil
 }
 
-func waitForAPIServiceAvailableFunc(ctx context.Context, provider *KubeProvider, name string) resource.RetryFunc {
-	return func() *resource.RetryError {
+func waitForStatefulSetRollout(ctx context.Context, provider *KubeProvider, ns string, name string, timeout time.Duration) error {
+	// Borrowed from: https://github.com/kubernetes/kubectl/blob/c4be63c54b7188502c1a63bb884a0b05fac51ebd/pkg/polymorphichelpers/rollout_status.go#L120
 
-		apiService, err := provider.AggregatorClientset.ApiregistrationV1().APIServices().Get(ctx, name, meta_v1.GetOptions{})
-		if err != nil {
-			return resource.NonRetryableError(err)
-		}
+	timeoutSeconds := int64(timeout.Seconds())
 
-		for i := range apiService.Status.Conditions {
-			if apiService.Status.Conditions[i].Type == apiregistration.Available {
-				return nil
-			}
-		}
-
-		return resource.RetryableError(fmt.Errorf("Waiting for APIService %v to be Available", name))
+	watcher, err := provider.MainClientset.AppsV1().StatefulSets(ns).Watch(ctx, meta_v1.ListOptions{Watch: true, TimeoutSeconds: &timeoutSeconds, FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String()})
+	if err != nil {
+		return err
 	}
+
+	defer watcher.Stop()
+
+	done := false
+	for !done {
+		select {
+		case event := <-watcher.ResultChan():
+			if event.Type == watch.Modified {
+				sts, ok := event.Object.(*apps_v1.StatefulSet)
+				if !ok {
+					return fmt.Errorf("%s could not cast to StatefulSet", name)
+				}
+
+				if sts.Spec.UpdateStrategy.Type != apps_v1.RollingUpdateStatefulSetStrategyType {
+					done = true
+					continue
+				}
+
+				if sts.Status.ObservedGeneration == 0 || sts.Generation > sts.Status.ObservedGeneration {
+					continue
+				}
+
+				if sts.Spec.Replicas != nil && sts.Status.ReadyReplicas < *sts.Spec.Replicas {
+					continue
+				}
+
+				if sts.Spec.UpdateStrategy.Type == apps_v1.RollingUpdateStatefulSetStrategyType && sts.Spec.UpdateStrategy.RollingUpdate != nil {
+					if sts.Spec.Replicas != nil && sts.Spec.UpdateStrategy.RollingUpdate.Partition != nil {
+						if sts.Status.UpdatedReplicas < (*sts.Spec.Replicas - *sts.Spec.UpdateStrategy.RollingUpdate.Partition) {
+							continue
+						}
+					}
+
+					done = true
+					continue
+				}
+
+				if sts.Status.UpdateRevision != sts.Status.CurrentRevision {
+					continue
+				}
+
+				done = true
+			}
+
+		case <-ctx.Done():
+			return fmt.Errorf("%s failed to rollout StatefulSet", name)
+		}
+	}
+
+	return nil
+}
+
+func waitForApiService(ctx context.Context, provider *KubeProvider, name string, timeout time.Duration) error {
+	timeoutSeconds := int64(timeout.Seconds())
+
+	watcher, err := provider.AggregatorClientset.ApiregistrationV1().APIServices().Watch(ctx, meta_v1.ListOptions{Watch: true, TimeoutSeconds: &timeoutSeconds, FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String()})
+	if err != nil {
+		return err
+	}
+
+	defer watcher.Stop()
+
+	done := false
+	for !done {
+		select {
+		case event := <-watcher.ResultChan():
+			if event.Type == watch.Modified {
+				apiService, ok := event.Object.(*apiregistration.APIService)
+				if !ok {
+					return fmt.Errorf("%s could not cast to APIService", name)
+				}
+
+				for i := range apiService.Status.Conditions {
+					if apiService.Status.Conditions[i].Type == apiregistration.Available {
+						done = true
+						continue
+					}
+				}
+			}
+
+		case <-ctx.Done():
+			return fmt.Errorf("%s failed to wait for APIService", name)
+		}
+	}
+
+	return nil
+}
+
+func waitForConditions(ctx context.Context, restClient *RestClientResult, waitFields []types.WaitForField, waitConditions []types.WaitForStatusCondition, name string, timeout time.Duration) error {
+	timeoutSeconds := int64(timeout.Seconds())
+
+	watcher, err := restClient.ResourceInterface.Watch(
+		ctx,
+		meta_v1.ListOptions{
+			Watch:          true,
+			TimeoutSeconds: &timeoutSeconds,
+			FieldSelector:  fields.OneTermEqualSelector("metadata.name", name).String(),
+		},
+	)
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop()
+
+	done := false
+	for !done {
+		select {
+		case event := <-watcher.ResultChan():
+			log.Printf("[TRACE] Received event type %s for %s", event.Type, name)
+			if event.Type == watch.Modified || event.Type == watch.Added {
+				rawResponse, ok := event.Object.(*meta_v1_unstruct.Unstructured)
+				if !ok {
+					return fmt.Errorf("%s could not cast resource to unstructured", name)
+				}
+
+				totalConditions := len(waitConditions) + len(waitFields)
+				totalMatches := 0
+
+				yamlJson, err := rawResponse.MarshalJSON()
+				if err != nil {
+					return err
+				}
+
+				gq := gojsonq.New().FromString(string(yamlJson))
+
+				for _, c := range waitConditions {
+					// Find the conditions by status and type
+					count := gq.Reset().From("status.conditions").
+						Where("type", "=", c.Type).
+						Where("status", "=", c.Status).Count()
+					if count == 0 {
+						log.Printf("[TRACE] Condition %s with status %s not found in %s", c.Type, c.Status, name)
+						continue
+					}
+					log.Printf("[TRACE] Condition %s with status %s found in %s", c.Type, c.Status, name)
+					totalMatches++
+				}
+
+				for _, c := range waitFields {
+					// Find the key
+					v := gq.Reset().Find(c.Key)
+					if v == nil {
+						log.Printf("[TRACE] Key %s not found in %s", c.Key, name)
+						continue
+					}
+
+					// For the sake of comparison we will convert everything to a string
+					stringVal := fmt.Sprintf("%v", v)
+					switch c.ValueType {
+					case "regex":
+						matched, err := regexp.Match(c.Value, []byte(stringVal))
+						if err != nil {
+							return err
+						}
+
+						if !matched {
+							log.Printf("[TRACE] Value %s does not match regex %s in %s (key %s)", stringVal, c.Value, name, c.Key)
+							continue
+						}
+
+						log.Printf("[TRACE] Value %s matches regex %s in %s (key %s)", stringVal, c.Value, name, c.Key)
+						totalMatches++
+
+					case "eq", "":
+						if stringVal != c.Value {
+							log.Printf("[TRACE] Value %s does not match %s in %s (key %s)", stringVal, c.Value, name, c.Key)
+							continue
+						}
+						log.Printf("[TRACE] Value %s matches %s in %s (key %s)", stringVal, c.Value, name, c.Key)
+						totalMatches++
+					}
+				}
+				if totalMatches == totalConditions {
+					log.Printf("[TRACE] All conditions met for %s", name)
+					done = true
+					continue
+				}
+				log.Printf("[TRACE] %d/%d conditions met for %s. Waiting for next ", totalMatches, totalConditions, name)
+			}
+
+		case <-ctx.Done():
+			return fmt.Errorf("%s failed to wait for resource", name)
+		}
+	}
+
+	return nil
 }
 
 // Takes the result of flatmap.Expand for an array of strings
@@ -874,17 +1306,11 @@ func expandStringList(configured []interface{}) []string {
 }
 
 func getLiveManifestFingerprint(d *schema.ResourceData, userProvided *yaml.Manifest, liveManifest *yaml.Manifest) string {
-	fields := getLiveManifestFields(d, userProvided, liveManifest)
-	return getFingerprint(fields)
-}
-
-func getLiveManifestFields(d *schema.ResourceData, userProvided *yaml.Manifest, liveManifest *yaml.Manifest) string {
 	var ignoreFields []string = nil
 	ignoreFieldsRaw, hasIgnoreFields := d.GetOk("ignore_fields")
 	if hasIgnoreFields {
 		ignoreFields = expandStringList(ignoreFieldsRaw.([]interface{}))
 	}
-
 	return getLiveManifestFields_WithIgnoredFields(ignoreFields, userProvided, liveManifest)
 }
 
@@ -896,15 +1322,30 @@ func getFingerprint(s string) string {
 
 func getLiveManifestFields_WithIgnoredFields(ignoredFields []string, userProvided *yaml.Manifest, liveManifest *yaml.Manifest) string {
 
+	// there is a special user case for secrets.
+	// If they are defined as manifests with StringData, it will always provide a non-empty plan
+	// so we will do a small lifehack here
+	if userProvided.GetKind() == "Secret" && userProvided.GetAPIVersion() == "v1" {
+		if stringData, found := userProvided.Raw.Object["stringData"]; found {
+			// there is an edge case where stringData might be nil and not a map[string]interface{}
+			// in this case we will just ignore it
+			if stringData, ok := stringData.(map[string]interface{}); ok {
+				// move all stringdata values to the data
+				for k, v := range stringData {
+					encodedString := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%v", v)))
+					meta_v1_unstruct.SetNestedField(userProvided.Raw.Object, encodedString, "data", k)
+				}
+				// and unset the stringData entirely
+				meta_v1_unstruct.RemoveNestedField(userProvided.Raw.Object, "stringData")
+			}
+		}
+	}
+
 	flattenedUser := flatten.Flatten(userProvided.Raw.Object)
 	flattenedLive := flatten.Flatten(liveManifest.Raw.Object)
 
 	// remove any fields from the user provided set or control fields that we want to ignore
-	fieldsToTrim := append([]string(nil), kubernetesControlFields...)
-	if len(ignoredFields) > 0 {
-		fieldsToTrim = append(fieldsToTrim, ignoredFields...)
-	}
-
+	fieldsToTrim := append(kubernetesControlFields, ignoredFields...)
 	for _, field := range fieldsToTrim {
 		delete(flattenedUser, field)
 
@@ -918,7 +1359,7 @@ func getLiveManifestFields_WithIgnoredFields(ignoredFields []string, userProvide
 
 	// update the user provided flattened string with the live versions of the keys
 	// this implicitly excludes anything that the user didn't provide as it was added by kubernetes runtime (annotations/mutations etc)
-	userKeys := []string{}
+	var userKeys []string
 	for userKey, userValue := range flattenedUser {
 		normalizedUserValue := strings.TrimSpace(userValue)
 
@@ -927,10 +1368,10 @@ func getLiveManifestFields_WithIgnoredFields(ignoredFields []string, userProvide
 		if _, exists := flattenedLive[userKey]; exists {
 			userKeys = append(userKeys, userKey)
 			normalizedLiveValue := strings.TrimSpace(flattenedLive[userKey])
-			flattenedUser[userKey] = normalizedLiveValue
 			if normalizedUserValue != normalizedLiveValue {
 				log.Printf("[TRACE] yaml drift detected in %s for %s, was: %s now: %s", userProvided.GetSelfLink(), userKey, normalizedUserValue, normalizedLiveValue)
 			}
+			flattenedUser[userKey] = getFingerprint(normalizedLiveValue)
 		} else {
 			if normalizedUserValue != "" {
 				log.Printf("[TRACE] yaml drift detected in %s for %s, was %s now blank", userProvided.GetSelfLink(), userKey, normalizedUserValue)
@@ -939,12 +1380,12 @@ func getLiveManifestFields_WithIgnoredFields(ignoredFields []string, userProvide
 	}
 
 	sort.Strings(userKeys)
-	returnedValues := []string{}
+	var returnedValues []string
 	for _, k := range userKeys {
 		returnedValues = append(returnedValues, fmt.Sprintf("%s=%s", k, flattenedUser[k]))
 	}
 
-	return strings.Join(returnedValues, ",")
+	return strings.Join(returnedValues, "\n")
 }
 
 var kubernetesControlFields = []string{
@@ -957,4 +1398,5 @@ var kubernetesControlFields = []string{
 	"metadata.resourceVersion",
 	"metadata.uid",
 	"metadata.annotations.kubectl.kubernetes.io/last-applied-configuration",
+	"metadata.managedFields",
 }

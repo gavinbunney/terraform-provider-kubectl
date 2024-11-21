@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"github.com/gavinbunney/terraform-provider-kubectl/yaml"
+	"github.com/alekc/terraform-provider-kubectl/yaml"
 	hcl "github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/ext/tryfunc"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
@@ -28,8 +28,9 @@ func dataSourceKubectlPathDocuments() *schema.Resource {
 		ReadContext: dataSourceKubectlPathDocumentsRead,
 		Schema: map[string]*schema.Schema{
 			"pattern": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "Glob pattern to search for",
 			},
 			"documents": &schema.Schema{
 				Type:     schema.TypeList,
