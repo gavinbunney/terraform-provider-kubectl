@@ -9,7 +9,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"io/ioutil"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/cli-runtime/pkg/printers"
+	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/kubectl/pkg/validation"
 	"os"
 	"sort"
@@ -32,6 +35,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	meta_v1_unstruct "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
+	apiMachineryTypes "k8s.io/apimachinery/pkg/types"
 	yamlWriter "sigs.k8s.io/yaml"
 
 	"k8s.io/client-go/discovery"
@@ -468,20 +472,27 @@ func resourceKubectlManifestApply(ctx context.Context, d *schema.ResourceData, m
 	_, _ = tmpfile.Write([]byte(yamlBody))
 	_ = tmpfile.Close()
 
-	applyOptions := apply.NewApplyOptions(genericclioptions.IOStreams{
-		In:     strings.NewReader(yamlBody),
-		Out:    log.Writer(),
-		ErrOut: log.Writer(),
-	})
-	applyOptions.Builder = k8sresource.NewBuilder(k8sresource.RESTClientGetter(meta.(*KubeProvider)))
-	applyOptions.DeleteOptions = &k8sdelete.DeleteOptions{
-		FilenameOptions: k8sresource.FilenameOptions{
-			Filenames: []string{tmpfile.Name()},
+	applyOptions := &apply.ApplyOptions{
+		IOStreams: genericiooptions.IOStreams{
+			In:     strings.NewReader(yamlBody),
+			Out:    log.Writer(),
+			ErrOut: log.Writer(),
 		},
-	}
-
-	applyOptions.ToPrinter = func(string) (printers.ResourcePrinter, error) {
-		return printers.NewDiscardingPrinter(), nil
+		Builder: k8sresource.NewBuilder(k8sresource.RESTClientGetter(meta.(*KubeProvider))),
+		DeleteOptions: &k8sdelete.DeleteOptions{
+			FilenameOptions: k8sresource.FilenameOptions{
+				Filenames: []string{tmpfile.Name()},
+			},
+		},
+		ToPrinter: func(string) (printers.ResourcePrinter, error) {
+			return printers.NewDiscardingPrinter(), nil
+		},
+		PrintFlags:        genericclioptions.NewPrintFlags("created").WithTypeSetter(scheme.Scheme),
+		Recorder:          genericclioptions.NoopRecorder{},
+		Overwrite:         true,
+		OpenAPIPatch:      true,
+		VisitedUids:       sets.New[apiMachineryTypes.UID](),
+		VisitedNamespaces: sets.New[string](),
 	}
 
 	if !d.Get("validate_schema").(bool) {
@@ -782,15 +793,17 @@ func getRestClientFromUnstructured(manifest *yaml.Manifest, provider *KubeProvid
 // checks there is a resource for the APIVersion and Kind defined in the 'resource'
 // if found it returns true and the APIResource which matched
 func checkAPIResourceIsPresent(available []*meta_v1.APIResourceList, resource meta_v1_unstruct.Unstructured) (*meta_v1.APIResource, bool) {
+	gvk := resource.GroupVersionKind()
 	for _, rList := range available {
 		if rList == nil {
 			continue
 		}
 		group := rList.GroupVersion
 		for _, r := range rList.APIResources {
-			if group == resource.GroupVersionKind().GroupVersion().String() && r.Kind == resource.GetKind() {
-				r.Group = rList.GroupVersion
-				r.Kind = rList.Kind
+			if group == gvk.GroupVersion().String() && r.Kind == gvk.Kind {
+				r.Group = gvk.Group
+				r.Version = gvk.Version
+				r.Kind = gvk.Kind
 				return &r, true
 			}
 		}
@@ -798,7 +811,7 @@ func checkAPIResourceIsPresent(available []*meta_v1.APIResourceList, resource me
 	return nil, false
 }
 
-// GetDeploymentConditionInternal returns the condition with the provided type.
+// GetDeploymentCondition returns the condition with the provided type.
 // Borrowed from: https://github.com/kubernetes/kubernetes/blob/master/pkg/controller/deployment/util/deployment_util.go#L135
 func GetDeploymentCondition(status apps_v1.DeploymentStatus, condType apps_v1.DeploymentConditionType) *apps_v1.DeploymentCondition {
 	for i := range status.Conditions {
@@ -911,7 +924,7 @@ func getLiveManifestFields_WithIgnoredFields(ignoredFields []string, userProvide
 		delete(flattenedUser, field)
 
 		// check for any nested fields to ignore
-		for k, _ := range flattenedUser {
+		for k := range flattenedUser {
 			if strings.HasPrefix(k, field+".") {
 				delete(flattenedUser, k)
 			}

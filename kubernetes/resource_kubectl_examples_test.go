@@ -38,10 +38,10 @@ func TestAcckubectlYaml(t *testing.T) {
 			name := fmt.Sprintf("tf-acc-test-%s", acctest.RandString(10))
 
 			resource.Test(t, resource.TestCase{
-				PreCheck:      func() {},
-				IDRefreshName: "kubectl_manifest.test",
-				Providers:     testAccProviders,
-				CheckDestroy:  testAccCheckkubectlDestroy,
+				PreCheck:          func() {},
+				IDRefreshName:     "kubectl_manifest.test",
+				ProviderFactories: testAccProviderFactories,
+				CheckDestroy:      testAccCheckkubectlDestroy,
 				Steps: []resource.TestStep{
 					{
 						Config: testkubectlYamlLoadTfExample(path, name),

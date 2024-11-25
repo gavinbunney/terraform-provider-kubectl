@@ -17,35 +17,35 @@ func resourceKubectlServerVersion() *schema.Resource {
 				Optional: true,
 				ForceNew: true,
 			},
-			"version": &schema.Schema{
+			"version": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"major": &schema.Schema{
+			"major": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"minor": &schema.Schema{
+			"minor": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"patch": &schema.Schema{
+			"patch": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"git_version": &schema.Schema{
+			"git_version": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"git_commit": &schema.Schema{
+			"git_commit": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"build_date": &schema.Schema{
+			"build_date": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"platform": &schema.Schema{
+			"platform": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},

@@ -1,6 +1,5 @@
 CURRENT_DIR=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 TEST?=$$(go list ./... |grep -v 'vendor')
-GOFMT_FILES?=$$(find . -name '*.go' |grep -v vendor)
 PKG_NAME=kubernetes
 export GO111MODULE=on
 
@@ -41,8 +40,12 @@ vet:
 		exit 1; \
 	fi
 
+update-deps:
+	go get -u ./...
+	go mod tidy
+
 fmt:
-	gofmt -w $(GOFMT_FILES)
+	gofmt -s -w .
 
 fmtcheck:
 	@sh -c "'$(CURDIR)/scripts/gofmtcheck.sh'"
@@ -51,11 +54,12 @@ errcheck:
 	@sh -c "'$(CURDIR)/scripts/errcheck.sh'"
 
 ci-build-setup:
-	sudo rm /usr/local/bin/docker-compose
-	curl -L https://github.com/docker/compose/releases/download/1.25.4/docker-compose-`uname -s`-`uname -m` > docker-compose
+	sudo rm -f /usr/local/bin/docker-compose
+	curl -L https://github.com/docker/compose/releases/download/v2.30.3/docker-compose-`uname -s`-`uname -m` > docker-compose
 	chmod +x docker-compose
 	sudo mv docker-compose /usr/local/bin
 	curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.20.7/bin/linux/amd64/kubectl
+	curl -LO "https://dl.k8s.io/release/v1.31.3/bin/linux/amd64/kubectl"
 	chmod +x kubectl
 	sudo mv kubectl /usr/local/bin/
 	bash scripts/gogetcookie.sh
