@@ -13,16 +13,16 @@ func dataSourceKubectlFileDocuments() *schema.Resource {
 	return &schema.Resource{
 		ReadContext: dataSourceKubectlFileDocumentsRead,
 		Schema: map[string]*schema.Schema{
-			"content": &schema.Schema{
+			"content": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"documents": &schema.Schema{
+			"documents": {
 				Type:     schema.TypeList,
 				Elem:     &schema.Schema{Type: schema.TypeString},
 				Computed: true,
 			},
-			"manifests": &schema.Schema{
+			"manifests": {
 				Type: schema.TypeMap,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,

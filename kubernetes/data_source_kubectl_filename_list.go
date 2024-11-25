@@ -16,16 +16,16 @@ func dataSourceKubectlFilenameList() *schema.Resource {
 	return &schema.Resource{
 		ReadContext: dataSourceKubectlFilenameListRead,
 		Schema: map[string]*schema.Schema{
-			"pattern": &schema.Schema{
+			"pattern": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"matches": &schema.Schema{
+			"matches": {
 				Type:     schema.TypeList,
 				Elem:     &schema.Schema{Type: schema.TypeString},
 				Computed: true,
 			},
-			"basenames": &schema.Schema{
+			"basenames": {
 				Type:     schema.TypeList,
 				Elem:     &schema.Schema{Type: schema.TypeString},
 				Computed: true,
