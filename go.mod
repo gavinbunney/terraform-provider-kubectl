@@ -22,7 +22,7 @@ require (
 	k8s.io/client-go v0.21.3
 	k8s.io/kube-aggregator v0.21.3
 	k8s.io/kubectl v0.21.3
-	sigs.k8s.io/yaml v1.2.0
+	sigs.k8s.io/yaml v1.4.0
 )
 
 require (
@@ -60,7 +60,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/google/btree v1.0.0 // indirect
-	github.com/google/go-cmp v0.5.6 // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.1.2 // indirect
