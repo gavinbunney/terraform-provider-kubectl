@@ -12,7 +12,7 @@ build:
 	go install
 
 dist:
-	goreleaser build --single-target --skip-validate --rm-dist
+	goreleaser build --single-target --skip validate
 
 test:
 	go test -i $(TEST) || exit 1
@@ -29,7 +29,7 @@ k3s-stop:
 	@bash scripts/stop-k3s.sh
 
 publish:
-	goreleaser release --rm-dist
+	goreleaser release --clean
 
 vet:
 	@echo "go vet ."
