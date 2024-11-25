@@ -163,7 +163,6 @@ metadata:
 ## Argument Reference
 
 * `pattern` - Required. Glob pattern to search for.
-* `force_new` - Optional. Forces delete & create of resources if the `yaml_body` changes. Default `false`.
 * `vars` - Optional. Map of variables to use when rendering the loaded documents as templates. Currently only strings are supported.
 * `sensitive_vars` - Optional. Map of sensitive variables to use when rendering the loaded documents as templates. Merged with the `vars` attribute. Currently only strings are supported.
 * `disable_template` - Optional. Flag to disable template parsing of the loaded documents.
