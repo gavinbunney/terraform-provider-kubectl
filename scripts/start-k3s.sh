@@ -6,14 +6,15 @@ cd ${DIR}
 
 export KUBECONFIG="${DIR}/kubeconfig.yaml"
 export COMPOSE_PROJECT_NAME=k3s
-export DOCKER_DEFAULT_PLATFORM=linux/$(uname -m)
+export ARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
+export DOCKER_DEFAULT_PLATFORM=linux/${ARCH}
 
 echo "--> Tearing down k3s in docker-compose"
 docker-compose down -v &>/dev/null || true
 rm -rf ${KUBECONFIG}
 sync; sync;
 
-echo "--> Starting k3s in docker-compose"
+echo "--> Starting k3s in docker-compose for arch ${ARCH}"
 docker-compose up -d --build --pull always
 
 echo "--> Allow insecure access to registry"

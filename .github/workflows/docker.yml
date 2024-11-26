@@ -1,4 +1,4 @@
-name: Cache images for tests in GHCR
+name: Cache Images
 
 on:
   push:
@@ -42,7 +42,14 @@ jobs:
           for image in ${IMAGES//,/ }; do
             new_image="ghcr.io/gavinbunney/terraform-provider-kubectl/testacc-$(echo $image | sed 's/\//-/')"
             echo "Caching $image as $new_image"
-            docker pull $image
-            docker tag $image $new_image
-            docker push $new_image
+            docker rmi $image --force
+            docker pull $image --platform linux/amd64
+            docker tag $image $new_image-amd64
+            docker push $new_image-amd64
+            docker tag $image $new_image-x86_64
+            docker push $new_image-x86_64
+            docker rmi $image --force
+            docker pull $image --platform linux/arm64
+            docker tag $image $new_image-arm64
+            docker push $new_image-arm64
           done
