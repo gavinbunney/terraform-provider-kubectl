@@ -1,6 +1,6 @@
 services:
   server:
-    image: rancher/k3s:v1.31.2-k3s1
+    image: ghcr.io/gavinbunney/terraform-provider-kubectl/testacc-rancher-k3s:v1.31.2-k3s1
     command: server --disable-agent --tls-san 172.17.0.1 --agent-token somethingtotallyrandom
     privileged: true
     environment:
@@ -20,7 +20,7 @@ services:
       - 6443:6443
 
   node:
-    image: rancher/k3s:v1.31.2-k3s1
+    image: ghcr.io/gavinbunney/terraform-provider-kubectl/testacc-rancher-k3s:v1.31.2-k3s1
     command: agent --token somethingtotallyrandom --server https://server:6443
     privileged: true
     restart: always
@@ -35,6 +35,6 @@ services:
 
   registry:
     platform: linux/amd64
-    image: registry:2
+    image: ghcr.io/gavinbunney/terraform-provider-kubectl/testacc-registry:2
     ports:
       - 6500:5000
