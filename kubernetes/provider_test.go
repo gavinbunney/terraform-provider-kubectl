@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 	"github.com/stretchr/testify/assert"
@@ -65,6 +66,10 @@ func testAccCheckkubectlStatus(s *terraform.State, shouldExist bool) error {
 }
 
 func TestAccAuthExecPlugin(t *testing.T) {
+	if os.Getenv(resource.EnvTfAcc) == "" {
+		t.Skipf("Acceptance tests skipped unless env '%s' set", resource.EnvTfAcc)
+	}
+
 	// load the kubeconfig for k3s and parse it manually
 	// so we can invoke the exec plugin path in acc tests
 	raw, err := os.ReadFile("../scripts/kubeconfig.yaml")
