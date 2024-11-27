@@ -51,7 +51,7 @@ jobs:
           - v1.31.2-k3s1
           - v1.29.10-k3s1
           - v1.27.16-k3s1
-          - v1.25.16-k3s4
+          - v1.25.10-k3s1
     runs-on: ubuntu-latest
     env:
       GO111MODULE: on
