@@ -5,9 +5,6 @@ on:
     paths:
       - '.github/workflows/docker.yml'
 
-env:
-  IMAGES: "rancher/k3s:v1.31.2-k3s1,rancher/k3s:v1.29.10-k3s1,rancher/k3s:v1.27.16-k3s1,rancher/k3s:v1.25.16-k3s4,registry:2"
-
 jobs:
   cache-images:
     strategy:
