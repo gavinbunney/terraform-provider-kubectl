@@ -4,11 +4,16 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var testAccProviders map[string]*schema.Provider
@@ -57,6 +62,57 @@ func testAccCheckkubectlStatus(s *terraform.State, shouldExist bool) error {
 	}
 
 	return nil
+}
+
+func TestAccAuthExecPlugin(t *testing.T) {
+	// load the kubeconfig for k3s and parse it manually
+	// so we can invoke the exec plugin path in acc tests
+	raw, err := os.ReadFile("../scripts/kubeconfig.yaml")
+	require.NoErrorf(t, err, "failed to read k3s kubeconfig file: %v", err)
+
+	config, err := clientcmd.Load(raw)
+	require.NoErrorf(t, err, "failed to parse k3s kubeconfig file: %v", err)
+
+	cc := config.Contexts[config.CurrentContext]
+	cluster := config.Clusters[cc.Cluster]
+	auth := config.AuthInfos[cc.AuthInfo]
+
+	// double-escape the cert details so bash/echo will not interpret them
+	authClientCert := strings.ReplaceAll(string(auth.ClientCertificateData), "\n", "\\\\n")
+	authClientKey := strings.ReplaceAll(string(auth.ClientKeyData), "\n", "\\\\n")
+
+	newProvider := Provider()
+	newProvider.Configure(context.Background(), terraform.NewResourceConfigRaw(map[string]interface{}{
+		"host":                   cluster.Server,
+		"cluster_ca_certificate": string(cluster.CertificateAuthorityData),
+		"load_config_file":       false,
+		"exec": []interface{}{
+			map[string]interface{}{
+				"api_version": "client.authentication.k8s.io/v1beta1",
+				"command":     "/bin/sh",
+				"args": []interface{}{
+					"-c",
+					fmt.Sprintf(`echo '{"apiVersion": "client.authentication.k8s.io/v1beta1","kind": "ExecCredential","status": {"clientCertificateData": "%s","clientKeyData": "%s"}}'`, authClientCert, authClientKey),
+				},
+			},
+		},
+	}))
+
+	provider := newProvider.Meta().(*KubeProvider)
+	discoveryClient, err := provider.ToDiscoveryClient()
+	if err != nil {
+		t.Errorf("failed to create discovery client: %v", err)
+	}
+
+	discoveryClient.Invalidate()
+	serverVersion, err := discoveryClient.ServerVersion()
+	if err != nil {
+		t.Errorf("failed to fetch server version: %v", err)
+	}
+
+	assert.NotNil(t, serverVersion.Major)
+	assert.NotNil(t, serverVersion.Minor)
+	assert.NotNil(t, serverVersion.Platform)
 }
 
 func unsetEnv(t *testing.T) func() {

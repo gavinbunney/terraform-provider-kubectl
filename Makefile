@@ -12,7 +12,7 @@ build:
 	go install
 
 dist:
-	goreleaser build --single-target --skip validate
+	goreleaser build --single-target --skip validate --clean
 
 test:
 	go test -i $(TEST) || exit 1
