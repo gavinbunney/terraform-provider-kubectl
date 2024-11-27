@@ -110,7 +110,7 @@ provider "kubectl" {
   load_config_file       = false
 
   exec {
-    api_version = "client.authentication.k8s.io/v1alpha1"
+    api_version = "client.authentication.k8s.io/v1beta1"
     command     = "aws-iam-authenticator"
     args = [
       "token",
@@ -119,6 +119,24 @@ provider "kubectl" {
     ]
   }
 }
+```
+
+For a completely custom `exec`, you can parse the output of a command to get the token (such as using the aws cli directly):
+```hcl
+provider "kubectl" {
+  apply_retry_count      = 15
+  host                   = var.eks_cluster_endpoint
+  cluster_ca_certificate = base64decode(var.eks_cluster_ca)
+  load_config_file       = false
+
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "/bin/sh"
+    args = [
+      "-c",
+      "aws eks get-token --cluster-name ${module.eks.cluster_id} --output json"
+    ]
+  }
 ```
 
 ### Retry Support

@@ -293,7 +293,9 @@ func initializeConfiguration(d *schema.ResourceData) (*restclient.Config, error)
 	}
 
 	if v, ok := d.GetOk("exec"); ok {
-		exec := &clientcmdapi.ExecConfig{}
+		exec := &clientcmdapi.ExecConfig{
+			InteractiveMode: clientcmdapi.IfAvailableExecInteractiveMode,
+		}
 		if spec, ok := v.([]interface{})[0].(map[string]interface{}); ok {
 			exec.APIVersion = spec["api_version"].(string)
 			exec.Command = spec["command"].(string)
