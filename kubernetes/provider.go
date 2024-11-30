@@ -7,7 +7,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -15,8 +17,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mitchellh/go-homedir"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	apimachineryschema "k8s.io/apimachinery/pkg/runtime/schema"
+	k8sruntime "k8s.io/apimachinery/pkg/util/runtime"
 	k8sresource "k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
 	diskcached "k8s.io/client-go/discovery/cached/disk"
@@ -263,6 +267,27 @@ func providerConfigure(d *schema.ResourceData, terraformVersion string) (interfa
 	a, err := aggregator.NewForConfig(cfg)
 	if err != nil {
 		return nil, diag.FromErr(fmt.Errorf("failed to configure: %s", err))
+	}
+
+	// inject our own error handler into the k8s runtime so we can log correctly into provider logs
+	// and also ignore some background cache refresh logs which don't relate to the user's actions
+	const defaultLogHandlerFunc = "k8s.io/apimachinery/pkg/util/runtime.logError"
+	for idx, handler := range k8sruntime.ErrorHandlers {
+		handlerName := runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name()
+		if handlerName == defaultLogHandlerFunc {
+			k8sruntime.ErrorHandlers[idx] = func(ctx context.Context, err error, msg string, keysAndValues ...interface{}) {
+				// silence discovery cache refresh errors
+				if caller, _, _, ok := runtime.Caller(3); ok {
+					callerFunc := runtime.FuncForPC(caller)
+					if strings.HasPrefix(callerFunc.Name(), "k8s.io/client-go/discovery/cached/memory") {
+						log.Printf("[DEBUG] %s - %s, %v", callerFunc.Name(), msg, err)
+						return
+					}
+				}
+
+				log.Printf("[ERROR] %s %v", msg, err)
+			}
+		}
 	}
 
 	// dereference config to create a shallow copy, allowing each func

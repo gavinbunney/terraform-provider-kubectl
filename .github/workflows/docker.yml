@@ -3,14 +3,21 @@ name: Cache Images
 on:
   push:
     paths:
-      - 'scripts/docker-compose.yaml'
       - '.github/workflows/docker.yml'
-
-env:
-  IMAGES: "rancher/k3s:v1.31.2-k3s1,registry:2"
 
 jobs:
   cache-images:
+    strategy:
+      matrix:
+        image:
+          - rancher/k3s:v1.31.2-k3s1
+          - rancher/k3s:v1.30.6-k3s1
+          - rancher/k3s:v1.29.10-k3s1
+          - rancher/k3s:v1.28.15-k3s1
+          - rancher/k3s:v1.27.16-k3s1
+          - rancher/k3s:v1.26.15-k3s1
+          - rancher/k3s:v1.25.16-k3s4
+          - registry:2
     if: github.event.pull_request.user.login != 'dependabot[bot]' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
@@ -39,17 +46,15 @@ jobs:
 
       - name: Cache images
         run: |
-          for image in ${IMAGES//,/ }; do
-            new_image="ghcr.io/gavinbunney/terraform-provider-kubectl/testacc-$(echo $image | sed 's/\//-/')"
-            echo "Caching $image as $new_image"
-            docker rmi $image --force
-            docker pull $image --platform linux/amd64
-            docker tag $image $new_image-amd64
-            docker push $new_image-amd64
-            docker tag $image $new_image-x86_64
-            docker push $new_image-x86_64
-            docker rmi $image --force
-            docker pull $image --platform linux/arm64
-            docker tag $image $new_image-arm64
-            docker push $new_image-arm64
-          done
+          new_image_tag="ghcr.io/gavinbunney/terraform-provider-kubectl/testacc-$(echo '${{matrix.image}}' | sed 's/\//-/')"
+          echo "Caching ${{matrix.image}} as $new_image_tag"
+          docker rmi ${{matrix.image}} --force
+          docker pull ${{matrix.image}} --platform linux/amd64
+          docker tag ${{matrix.image}} $new_image_tag-amd64
+          docker push $new_image_tag-amd64
+          docker tag ${{matrix.image}} $new_image_tag-x86_64
+          docker push $new_image_tag-x86_64
+          docker rmi ${{matrix.image}} --force
+          docker pull ${{matrix.image}} --platform linux/arm64
+          docker tag ${{matrix.image}} $new_image_tag-arm64
+          docker push $new_image_tag-arm64
