@@ -1,6 +1,6 @@
 services:
   server:
-    image: ghcr.io/gavinbunney/terraform-provider-kubectl/testacc-rancher-k3s:v1.31.2-k3s1-${ARCH:-amd64}
+    image: ghcr.io/gavinbunney/terraform-provider-kubectl/testacc-rancher-k3s:${K3S_VERSION}-${ARCH}
     command: server --disable-agent --tls-san 172.17.0.1 --agent-token somethingtotallyrandom
     privileged: true
     environment:
@@ -20,7 +20,7 @@ services:
       - 6443:6443
 
   node:
-    image: ghcr.io/gavinbunney/terraform-provider-kubectl/testacc-rancher-k3s:v1.31.2-k3s1-${ARCH:-amd64}
+    image: ghcr.io/gavinbunney/terraform-provider-kubectl/testacc-rancher-k3s:${K3S_VERSION}-${ARCH}
     command: agent --token somethingtotallyrandom --server https://server:6443
     privileged: true
     restart: always
