@@ -128,11 +128,11 @@ In order to test the provider, you can simply run `make test`.
 $ make test
 ```
 
-The provider uses k3s to run integration tests. These tests look for any `*.tf` files in the `_examples` folder and run an `plan`, `apply`, `refresh` and `plan` loop over each file. 
+The provider uses k3s to run integration tests. These tests look for any `*.tf` files in the `test/e2e` folder and run an `plan`, `apply`, `refresh` and `plan` loop over each file. 
 
 Inside each file the string `name-here` is replaced with a unique name during test execution. This is a simple string replace before the TF is applied to ensure that tests don't fail due to naming clashes. 
 
-Each scenario can be placed in a folder, to help others navigate and use the examples, and added to the [README.MD](./_examples/README.MD). 
+Each scenario can be placed in a folder, to help others navigate and use the examples, and added to the [README.MD](./test/e2e/README.MD). 
 
 > Note: The test infrastructure doesn't support multi-file TF configurations so ensure your test scenario is in a single file. 
 
