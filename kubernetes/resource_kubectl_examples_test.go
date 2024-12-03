@@ -27,7 +27,7 @@ func visit(files *[]string) filepath.WalkFunc {
 func TestAcckubectlYaml(t *testing.T) {
 	_ = os.Setenv("KUBECTL_PROVIDER_APPLY_RETRY_COUNT", "5")
 	var files []string
-	root := "../_examples"
+	root := "../test/e2e"
 	err := filepath.Walk(root, visit(&files))
 	if err != nil {
 		panic(err)
@@ -36,6 +36,7 @@ func TestAcckubectlYaml(t *testing.T) {
 	for _, path := range files {
 		t.Run("File: "+path, func(t *testing.T) {
 			name := fmt.Sprintf("tf-acc-test-%s", acctest.RandString(10))
+			manifest := testkubectlYamlLoadTfExample(path, name)
 
 			resource.Test(t, resource.TestCase{
 				PreCheck:          func() {},
@@ -44,12 +45,17 @@ func TestAcckubectlYaml(t *testing.T) {
 				CheckDestroy:      testAccCheckkubectlDestroy,
 				Steps: []resource.TestStep{
 					{
-						Config: testkubectlYamlLoadTfExample(path, name),
+						Config: manifest,
 						Check: resource.ComposeAggregateTestCheckFunc(
 							testAccCheckkubectlExists,
 							resource.TestCheckResourceAttrSet("kubectl_manifest.test", "yaml_incluster"),
 							resource.TestCheckResourceAttrSet("kubectl_manifest.test", "live_manifest_incluster"),
 						),
+					},
+					{
+						Config:             manifest,
+						PlanOnly:           true,
+						ExpectNonEmptyPlan: false,
 					},
 				},
 			})
