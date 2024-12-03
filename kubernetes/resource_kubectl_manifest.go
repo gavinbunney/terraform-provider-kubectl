@@ -972,4 +972,5 @@ var kubernetesControlFields = []string{
 	"metadata.resourceVersion",
 	"metadata.uid",
 	"metadata.annotations.kubectl.kubernetes.io/last-applied-configuration",
+	"metadata.managedFields",
 }
