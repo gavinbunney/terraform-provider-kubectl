@@ -956,6 +956,37 @@ YAML
 	})
 }
 
+func TestAccKubectlReplanAlwaysChangedYAML(t *testing.T) {
+	config := `
+resource "kubectl_manifest" "config_map" {
+  yaml_body = <<EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-cm
+data:
+  timestamp: "${timestamp()}"
+EOF
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckkubectlDestroy,
+
+		Steps: []resource.TestStep{
+			{
+				Config:             config,
+				ExpectNonEmptyPlan: true,
+			},
+			{
+				Config:             config,
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
+
 func withAlteredField(manifest *yaml.Manifest, value interface{}, fields ...string) *yaml.Manifest {
 	_ = unstructured.SetNestedField(manifest.Raw.Object, value, fields...)
 	return manifest
