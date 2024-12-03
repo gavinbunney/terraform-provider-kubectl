@@ -1,0 +1,30 @@
+run:
+  timeout: 5m
+output:
+  formats:
+    - format: line-number
+      path: stderr
+    - format: checkstyle
+      path: ./build/lint-report-checkstyle.xml
+    - format: html
+      path: ./build/lint-report.html
+
+linters:
+  enable:
+    # default linters
+    #- errcheck
+    #- gosimple
+    #- govet
+    #- ineffassign
+    #- staticcheck
+    #- unused
+
+    # additional enabled
+    #- bodyclose
+    #- goconst
+    #- gosec
+    #- misspell
+    - prealloc
+
+  disable-all: true
+

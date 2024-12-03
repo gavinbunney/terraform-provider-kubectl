@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [master]
 
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  GO_VERSION: 1.23
+
 jobs:
 
   build:
@@ -14,10 +21,10 @@ jobs:
       GO111MODULE: on
     steps:
       - uses: actions/checkout@v4
-      - name: Set up GO 1.23.x
+      - name: Set up GO ${{env.GO_VERSION}}.x
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: ${{env.GO_VERSION}}
           check-latest: true
 
       - run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
@@ -32,10 +39,10 @@ jobs:
       GO111MODULE: on
     steps:
       - uses: actions/checkout@v4
-      - name: Set up GO 1.23.x
+      - name: Set up GO ${{env.GO_VERSION}}.x
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: ${{env.GO_VERSION}}
           check-latest: true
 
       - run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
@@ -43,6 +50,12 @@ jobs:
         run: make ci-build-setup
       - name: Run unit tests
         run: make test
+      - name: Archive code coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-code-coverage-report
+          path: build/test-coverage.html
 
   testacc:
     strategy:
@@ -60,10 +73,10 @@ jobs:
       GO111MODULE: on
     steps:
       - uses: actions/checkout@v4
-      - name: Set up GO 1.23.x
+      - name: Set up GO ${{env.GO_VERSION}}.x
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: ${{env.GO_VERSION}}
           check-latest: true
 
       - run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
@@ -77,6 +90,12 @@ jobs:
         run: make testacc
       - name: Stop k3s
         run: make k3s-stop
+      - name: Archive code coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: testacc-${{matrix.k3s_version}}-code-coverage-report
+          path: build/testacc-coverage.html
 
   fmtcheck:
     runs-on: ubuntu-latest
@@ -84,10 +103,10 @@ jobs:
       GO111MODULE: on
     steps:
       - uses: actions/checkout@v4
-      - name: Set up GO 1.23.x
+      - name: Set up GO ${{env.GO_VERSION}}.x
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: ${{env.GO_VERSION}}
           check-latest: true
 
       - run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
@@ -102,10 +121,10 @@ jobs:
       GO111MODULE: on
     steps:
       - uses: actions/checkout@v4
-      - name: Set up GO 1.23.x
+      - name: Set up GO ${{env.GO_VERSION}}.x
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: ${{env.GO_VERSION}}
           check-latest: true
 
       - run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
@@ -113,3 +132,18 @@ jobs:
         run: make ci-build-setup
       - name: Run vet
         run: make vet
+
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up GO ${{env.GO_VERSION}}.x
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{env.GO_VERSION}}
+          check-latest: true
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.60

@@ -42,7 +42,7 @@ func dataSourceKubectlFilenameListRead(ctx context.Context, d *schema.ResourceDa
 	}
 	sort.Strings(items)
 	var elemhash string
-	var basenames []string
+	basenames := make([]string, 0, len(items))
 	for i, s := range items {
 		elemhash += strconv.Itoa(i) + s
 		basenames = append(basenames, filepath.Base(s))
