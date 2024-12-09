@@ -7,7 +7,7 @@ import (
 )
 
 func TestAccKubectlDataSourceFilenameList_basic(t *testing.T) {
-	path := "../_examples/crds"
+	path := "../test/e2e/crds"
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() {},
 		Providers: testAccProviders,

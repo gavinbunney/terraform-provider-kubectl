@@ -1,28 +1,40 @@
-version: '3'
 services:
   server:
-    image: rancher/k3s:v1.20.7-k3s1
-    command: server --disable-agent --tls-san 172.17.0.1
+    image: ghcr.io/gavinbunney/terraform-provider-kubectl/testacc-rancher-k3s:${K3S_VERSION}-${ARCH}
+    command: server --disable-agent --tls-san 172.17.0.1 --agent-token somethingtotallyrandom
+    privileged: true
     environment:
-      - K3S_CLUSTER_SECRET=somethingtotallyrandom
       - K3S_KUBECONFIG_OUTPUT=/output/kubeconfig.yaml
       - K3S_KUBECONFIG_MODE=666
+    tmpfs:
+      - /run
+      - /var/run
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 65535
+        hard: 65535
     volumes:
-      - ${TRAVIS_BUILD_DIR:-..}/scripts:/output
+      - ../scripts:/output
     ports:
       - 6443:6443
 
   node:
-    image: rancher/k3s:v1.20.7-k3s1
+    image: ghcr.io/gavinbunney/terraform-provider-kubectl/testacc-rancher-k3s:${K3S_VERSION}-${ARCH}
+    command: agent --token somethingtotallyrandom --server https://server:6443
+    privileged: true
+    restart: always
     tmpfs:
       - /run
       - /var/run
-    privileged: true
-    environment:
-      - K3S_URL=https://server:6443
-      - K3S_CLUSTER_SECRET=somethingtotallyrandom
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 65535
+        hard: 65535
 
   registry:
-    image: registry:2
+    platform: linux/amd64
+    image: ghcr.io/gavinbunney/terraform-provider-kubectl/testacc-registry:2-amd64
     ports:
-      - 5000:5000
+      - 6500:5000

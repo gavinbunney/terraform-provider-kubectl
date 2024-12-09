@@ -27,16 +27,16 @@ func dataSourceKubectlPathDocuments() *schema.Resource {
 	return &schema.Resource{
 		ReadContext: dataSourceKubectlPathDocumentsRead,
 		Schema: map[string]*schema.Schema{
-			"pattern": &schema.Schema{
+			"pattern": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"documents": &schema.Schema{
+			"documents": {
 				Type:     schema.TypeList,
 				Elem:     &schema.Schema{Type: schema.TypeString},
 				Computed: true,
 			},
-			"manifests": &schema.Schema{
+			"manifests": {
 				Type: schema.TypeMap,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,

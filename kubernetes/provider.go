@@ -4,11 +4,23 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"reflect"
+	"regexp"
+	"runtime"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mitchellh/go-homedir"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	apimachineryschema "k8s.io/apimachinery/pkg/runtime/schema"
+	k8sruntime "k8s.io/apimachinery/pkg/util/runtime"
 	k8sresource "k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
 	diskcached "k8s.io/client-go/discovery/cached/disk"
@@ -19,13 +31,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	aggregator "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
-	"log"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strconv"
-	"strings"
-	"time"
 )
 
 func Provider() *schema.Provider {
@@ -120,6 +125,18 @@ func Provider() *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("KUBE_TOKEN", ""),
 				Description: "Token to authentifcate an service account",
 			},
+			"proxy_url": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "URL to the proxy to be used for all API requests",
+				DefaultFunc: schema.EnvDefaultFunc("KUBE_PROXY_URL", ""),
+			},
+			"tls_server_name": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Server name passed to the server for SNI and is used in the client to check server certificates against.",
+				DefaultFunc: schema.EnvDefaultFunc("KUBE_TLS_SERVER_NAME", ""),
+			},
 			"load_config_file": {
 				Type:        schema.TypeBool,
 				Optional:    true,
@@ -211,7 +228,7 @@ func (p *KubeProvider) ToRESTMapper() (meta.RESTMapper, error) {
 	discoveryClient, _ := p.ToDiscoveryClient()
 	if discoveryClient != nil {
 		mapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
-		expander := restmapper.NewShortcutExpander(mapper, discoveryClient)
+		expander := restmapper.NewShortcutExpander(mapper, discoveryClient, nil)
 		return expander, nil
 	}
 
@@ -253,6 +270,27 @@ func providerConfigure(d *schema.ResourceData, terraformVersion string) (interfa
 		return nil, diag.FromErr(fmt.Errorf("failed to configure: %s", err))
 	}
 
+	// inject our own error handler into the k8s runtime so we can log correctly into provider logs
+	// and also ignore some background cache refresh logs which don't relate to the user's actions
+	const defaultLogHandlerFunc = "k8s.io/apimachinery/pkg/util/runtime.logError"
+	for idx, handler := range k8sruntime.ErrorHandlers {
+		handlerName := runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name()
+		if handlerName == defaultLogHandlerFunc {
+			k8sruntime.ErrorHandlers[idx] = func(ctx context.Context, err error, msg string, keysAndValues ...interface{}) {
+				// silence discovery cache refresh errors
+				if caller, _, _, ok := runtime.Caller(3); ok {
+					callerFunc := runtime.FuncForPC(caller)
+					if strings.HasPrefix(callerFunc.Name(), "k8s.io/client-go/discovery/cached/memory") {
+						log.Printf("[DEBUG] %s - %s, %v", callerFunc.Name(), msg, err)
+						return
+					}
+				}
+
+				log.Printf("[ERROR] %s %v", msg, err)
+			}
+		}
+	}
+
 	// dereference config to create a shallow copy, allowing each func
 	// to manipulate the state without affecting another func
 	return &KubeProvider{
@@ -280,7 +318,22 @@ func initializeConfiguration(d *schema.ResourceData) (*restclient.Config, error)
 		configPaths = filepath.SplitList(v)
 	}
 
-	if d.Get("load_config_file").(bool) && len(configPaths) > 0 {
+	if v, ok := d.GetOk("exec"); ok {
+		exec := &clientcmdapi.ExecConfig{
+			InteractiveMode: clientcmdapi.IfAvailableExecInteractiveMode,
+		}
+		if spec, ok := v.([]interface{})[0].(map[string]interface{}); ok {
+			exec.APIVersion = spec["api_version"].(string)
+			exec.Command = spec["command"].(string)
+			exec.Args = expandStringSlice(spec["args"].([]interface{}))
+			for kk, vv := range spec["env"].(map[string]interface{}) {
+				exec.Env = append(exec.Env, clientcmdapi.ExecEnvVar{Name: kk, Value: vv.(string)})
+			}
+		} else {
+			return nil, fmt.Errorf("Failed to parse exec")
+		}
+		overrides.AuthInfo.Exec = exec
+	} else if d.Get("load_config_file").(bool) && len(configPaths) > 0 {
 		expandedPaths := []string{}
 		for _, p := range configPaths {
 			path, err := homedir.Expand(p)
@@ -361,20 +414,11 @@ func initializeConfiguration(d *schema.ResourceData) (*restclient.Config, error)
 	if v, ok := d.GetOk("token"); ok {
 		overrides.AuthInfo.Token = v.(string)
 	}
-
-	if v, ok := d.GetOk("exec"); ok {
-		exec := &clientcmdapi.ExecConfig{}
-		if spec, ok := v.([]interface{})[0].(map[string]interface{}); ok {
-			exec.APIVersion = spec["api_version"].(string)
-			exec.Command = spec["command"].(string)
-			exec.Args = expandStringSlice(spec["args"].([]interface{}))
-			for kk, vv := range spec["env"].(map[string]interface{}) {
-				exec.Env = append(exec.Env, clientcmdapi.ExecEnvVar{Name: kk, Value: vv.(string)})
-			}
-		} else {
-			return nil, fmt.Errorf("Failed to parse exec")
-		}
-		overrides.AuthInfo.Exec = exec
+	if v, ok := d.GetOk("proxy_url"); ok {
+		overrides.ClusterDefaults.ProxyURL = v.(string)
+	}
+	if v, ok := d.GetOk("tls_server_name"); ok {
+		overrides.ClusterInfo.TLSServerName = v.(string)
 	}
 
 	cc := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loader, overrides)

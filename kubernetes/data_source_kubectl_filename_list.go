@@ -16,16 +16,16 @@ func dataSourceKubectlFilenameList() *schema.Resource {
 	return &schema.Resource{
 		ReadContext: dataSourceKubectlFilenameListRead,
 		Schema: map[string]*schema.Schema{
-			"pattern": &schema.Schema{
+			"pattern": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"matches": &schema.Schema{
+			"matches": {
 				Type:     schema.TypeList,
 				Elem:     &schema.Schema{Type: schema.TypeString},
 				Computed: true,
 			},
-			"basenames": &schema.Schema{
+			"basenames": {
 				Type:     schema.TypeList,
 				Elem:     &schema.Schema{Type: schema.TypeString},
 				Computed: true,
@@ -42,7 +42,7 @@ func dataSourceKubectlFilenameListRead(ctx context.Context, d *schema.ResourceDa
 	}
 	sort.Strings(items)
 	var elemhash string
-	var basenames []string
+	basenames := make([]string, 0, len(items))
 	for i, s := range items {
 		elemhash += strconv.Itoa(i) + s
 		basenames = append(basenames, filepath.Base(s))

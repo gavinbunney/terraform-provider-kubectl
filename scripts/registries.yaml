@@ -1,4 +1,4 @@
 mirrors:
-  "registry:5000":
+  "registry:6500":
     endpoint:
-      - http://registry:5000
+      - http://registry:6500
