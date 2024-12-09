@@ -7,31 +7,31 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 
+	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/krusty"
 	"sigs.k8s.io/kustomize/api/resmap"
 	"sigs.k8s.io/kustomize/api/types"
-	"sigs.k8s.io/kustomize/api/filesys"
 )
 
 func dataSourceKubectlKustomizeDocuments() *schema.Resource {
 	return &schema.Resource{
 		ReadContext: dataSourceKubectlKustomizeDocumentsRead,
 		Schema: map[string]*schema.Schema{
-			"target": &schema.Schema{
+			"target": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"load_restrictor": &schema.Schema{
+			"load_restrictor": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "rootOnly",
 			},
-			"add_managed_by_label": &schema.Schema{
-				Type: schema.TypeBool,
+			"add_managed_by_label": {
+				Type:     schema.TypeBool,
 				Optional: true,
-				Default: false,
+				Default:  false,
 			},
-			"documents": &schema.Schema{
+			"documents": {
 				Type:     schema.TypeList,
 				Elem:     &schema.Schema{Type: schema.TypeString},
 				Computed: true,
@@ -67,7 +67,7 @@ func dataSourceKubectlKustomizeDocumentsRead(ctx context.Context, d *schema.Reso
 }
 
 func makeKustOpts(d *schema.ResourceData) (*krusty.Options, error) {
-	opts := &krusty.Options{}
+	opts := krusty.MakeDefaultOptions()
 
 	rName := d.Get("load_restrictor").(string)
 	switch rName {
