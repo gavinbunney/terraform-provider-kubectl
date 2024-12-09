@@ -16,7 +16,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/zclconf/go-cty v1.15.1
 	github.com/zclconf/go-cty-yaml v1.1.0
-	google.golang.org/grpc v1.68.0
+	google.golang.org/grpc v1.68.1
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.31.3
 	k8s.io/apimachinery v0.31.3
