@@ -10,12 +10,12 @@ var kustTargetUrl = "https://github.com/kubernetes-sigs/kustomize/examples/multi
 
 func TestAccKubectlDataSourceKustomizeDocuments_url(t *testing.T) {
 	resource.Test(t, resource.TestCase{
-		PreCheck: nil,
+		PreCheck:  nil,
 		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
 				Config: kubectlKustomizeDocumentsConfig(kustTargetUrl),
-				Check: resource.TestCheckResourceAttr("data.kubectl_kustomize_documents.test", "documents.#", "3"),
+				Check:  resource.TestCheckResourceAttr("data.kubectl_kustomize_documents.test", "documents.#", "3"),
 			},
 		},
 	})
@@ -23,12 +23,12 @@ func TestAccKubectlDataSourceKustomizeDocuments_url(t *testing.T) {
 
 func TestAccKubectlDataSourceKustomizeDocuments_localDir(t *testing.T) {
 	resource.Test(t, resource.TestCase{
-		PreCheck: nil,
+		PreCheck:  nil,
 		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
 				Config: kubectlKustomizeDocumentsConfig("../test/data/kustomize/helloWorld"),
-				Check: resource.TestCheckResourceAttr("data.kubectl_kustomize_documents.test", "documents.#", "3"),
+				Check:  resource.TestCheckResourceAttr("data.kubectl_kustomize_documents.test", "documents.#", "3"),
 			},
 		},
 	})
