@@ -12,8 +12,8 @@ data "kubectl_kustomize_documents" "manifests" {
 }
 
 resource "kubectl_manifest" "test" {
-    count     = length(data.kubectl_file_documents.manifests.documents)
-    yaml_body = element(data.kubectl_file_documents.manifests.documents, count.index)
+    count     = length(data.kubectl_kustomize_documents.manifests.documents)
+    yaml_body = element(data.kubectl_kustomize_documents.manifests.documents, count.index)
 }
 ```
 
