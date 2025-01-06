@@ -1,7 +1,6 @@
 module github.com/gavinbunney/terraform-provider-kubectl
 
 go 1.23
-
 toolchain go1.23.3
 
 require (
@@ -14,16 +13,16 @@ require (
 	github.com/icza/dyno v0.0.0-20230330125955-09f820a8d9c0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/stretchr/testify v1.10.0
-	github.com/zclconf/go-cty v1.15.1
+	github.com/zclconf/go-cty v1.16.0
 	github.com/zclconf/go-cty-yaml v1.1.0
-	google.golang.org/grpc v1.68.1
+	google.golang.org/grpc v1.69.2
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.31.3
-	k8s.io/apimachinery v0.31.3
-	k8s.io/cli-runtime v0.31.3
-	k8s.io/client-go v0.31.3
-	k8s.io/kube-aggregator v0.31.3
-	k8s.io/kubectl v0.31.3
+	k8s.io/api v0.32.0
+	k8s.io/apimachinery v0.32.0
+	k8s.io/cli-runtime v0.32.0
+	k8s.io/client-go v0.32.0
+	k8s.io/kube-aggregator v0.32.0
+	k8s.io/kubectl v0.32.0
 	sigs.k8s.io/kustomize/api v0.18.0
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -77,7 +76,6 @@ require (
 	github.com/hashicorp/terraform-registry-address v0.2.3 // indirect
 	github.com/hashicorp/terraform-svchost v0.1.1 // indirect
 	github.com/hashicorp/yamux v0.1.2 // indirect
-	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jonboulle/clockwork v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
@@ -126,7 +124,7 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/component-base v0.31.3 // indirect
+	k8s.io/component-base v0.32.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241127205056-99599406b04f // indirect
 	k8s.io/utils v0.0.0-20241104163129-6fe5fd82f078 // indirect
