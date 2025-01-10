@@ -61,6 +61,7 @@ jobs:
     strategy:
       matrix:
         k3s_version:
+          - v1.32.0-k3s1
           - v1.31.2-k3s1
           - v1.30.6-k3s1
           - v1.29.10-k3s1
