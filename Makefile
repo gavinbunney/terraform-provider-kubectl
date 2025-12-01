@@ -68,7 +68,7 @@ ci-build-setup: test-setup
 	curl -L https://github.com/docker/compose/releases/download/v2.30.3/docker-compose-`uname -s`-`uname -m` > docker-compose
 	chmod +x docker-compose
 	sudo mv docker-compose /usr/local/bin
-	curl -LO "https://dl.k8s.io/release/v1.32.0/bin/linux/amd64/kubectl"
+	curl -LO "https://dl.k8s.io/release/v1.34.2/bin/linux/amd64/kubectl"
 	chmod +x kubectl
 	sudo mv kubectl /usr/local/bin/
 	bash scripts/gogetcookie.sh
