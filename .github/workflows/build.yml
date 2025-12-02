@@ -11,7 +11,7 @@ permissions:
   pull-requests: read
 
 env:
-  GO_VERSION: 1.23
+  GO_VERSION: 1.25
 
 jobs:
 
@@ -61,6 +61,8 @@ jobs:
     strategy:
       matrix:
         k3s_version:
+          - v1.34.2-k3s1
+          - v1.33.6-k3s1
           - v1.32.0-k3s1
           - v1.31.2-k3s1
           - v1.30.6-k3s1
@@ -145,6 +147,6 @@ jobs:
           go-version: ${{env.GO_VERSION}}
           check-latest: true
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
-          version: v1.60
+          version: v2.6.2
