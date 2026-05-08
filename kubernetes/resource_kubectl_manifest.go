@@ -287,14 +287,12 @@ metadata:
 			// Get the UID of the K8s resource as it was when the `resourceKubectlManifestCreate` func completed.
 			createdAtUID := d.Get("uid").(string)
 			// Get the UID of the K8s resource as it currently is in the cluster.
-			UID, exists := d.Get("live_uid").(string)
-			if !exists {
-				return nil
-			}
+			liveUIDKnown := d.NewValueKnown("live_uid")
+			liveUID := d.Get("live_uid").(string)
 
-			if UID != createdAtUID {
-				log.Printf("[TRACE] DETECTED %s vs %s", UID, createdAtUID)
-				_ = d.SetNewComputed("uid")
+			if updatedUID, shouldUpdate := resolveUIDForPlannedState(createdAtUID, liveUID, liveUIDKnown); shouldUpdate {
+				log.Printf("[TRACE] DETECTED UID CHANGE %s vs %s", liveUID, createdAtUID)
+				_ = d.SetNew("uid", updatedUID)
 				return nil
 			}
 
@@ -891,6 +889,21 @@ func expandStringList(configured []interface{}) []string {
 func getLiveManifestFingerprint(d *schema.ResourceData, userProvided *yaml.Manifest, liveManifest *yaml.Manifest) string {
 	fields := getLiveManifestFields(d, userProvided, liveManifest)
 	return getFingerprint(fields)
+}
+
+func resolveUIDForPlannedState(createdAtUID, liveUID string, liveUIDKnown bool) (string, bool) {
+	if !liveUIDKnown {
+		return "", false
+	}
+	if createdAtUID == "" || liveUID == "" {
+		return "", false
+	}
+
+	if createdAtUID != liveUID {
+		return liveUID, true
+	}
+
+	return "", false
 }
 
 func getLiveManifestFields(d *schema.ResourceData, userProvided *yaml.Manifest, liveManifest *yaml.Manifest) string {
